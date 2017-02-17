@@ -1,8 +1,8 @@
 #ifndef USB_CLASS_H
 #define USB_CLASS_H
 
-#include "control_endpoint.h"
-#include "dwc_otg_device.h"
+#include "usb/control_endpoint.h"
+#include "usb/dwc_otg_device.h"
 
 
 class USBClass

@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "device.h"
+#include "usb/device.h"
 
 
 class ST_Device: public Device

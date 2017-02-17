@@ -1,6 +1,6 @@
-#include "endpoint.h"
-#include "device.h"
-#include "usb_class.h"
+#include "usb/endpoint.h"
+#include "usb/device.h"
+#include "usb/usb_class.h"
 
 
 /*

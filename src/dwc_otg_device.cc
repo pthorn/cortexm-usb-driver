@@ -1,10 +1,10 @@
 #include <stm32f4xx.h>
 #include <algorithm>
 
-#include "dwc_otg_device.h"
-#include "defs.h"
-#include "endpoint.h"
-#include "control_endpoint.h"
+#include "usb/dwc_otg_device.h"
+#include "usb/defs.h"
+#include "usb/endpoint.h"
+#include "usb/control_endpoint.h"
 #include "print.h"
 //#include "gpio.h" TODO
 

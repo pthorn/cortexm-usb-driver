@@ -3,7 +3,7 @@
 
 #include <cstddef>
 
-#include "defs.h"
+#include "usb/defs.h"
 //#include "print.h"
 
 class Device;

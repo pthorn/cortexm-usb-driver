@@ -1,8 +1,8 @@
 #ifndef STANDARD_REQUESTS_H
 #define STANDARD_REQUESTS_H
 
-#include "usb_class.h"
-#include "descriptors.h"
+#include "usb/usb_class.h"
+#include "usb/descriptors.h"
 
 
 class DWC_OTG_Device;

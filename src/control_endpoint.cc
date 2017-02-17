@@ -1,6 +1,6 @@
-#include "control_endpoint.h"
-#include "device.h"
-#include "usb_class.h"
+#include "usb/control_endpoint.h"
+#include "usb/device.h"
+#include "usb/usb_class.h"
 #include "print.h"
 
 

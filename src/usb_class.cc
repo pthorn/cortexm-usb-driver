@@ -1,2 +1,2 @@
-#include "usb_class.h"
+#include "usb/usb_class.h"
 

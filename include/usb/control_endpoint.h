@@ -3,8 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include "defs.h"
-#include "endpoint.h"
+#include "usb/defs.h"
+#include "usb/endpoint.h"
 
 class USBClass;
 

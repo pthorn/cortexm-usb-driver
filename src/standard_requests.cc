@@ -1,8 +1,8 @@
 #include <algorithm>
 
-#include "standard_requests.h"
-#include "dwc_otg_device.h"
-#include "descriptors.h"
+#include "usb/standard_requests.h"
+#include "usb/dwc_otg_device.h"
+#include "usb/descriptors.h"
 #include "print.h"
 
 
