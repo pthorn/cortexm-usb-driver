@@ -1,6 +1,6 @@
-#include <stm32f4xx.h>
 #include <algorithm>
 
+#include "dwc_otg_header.h"
 #include "usb/dwc_otg_device.h"
 #include "usb/defs.h"
 #include "usb/endpoint.h"

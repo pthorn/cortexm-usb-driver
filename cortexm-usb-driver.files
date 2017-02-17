@@ -13,6 +13,7 @@ include/usb_class.h
 src/control_endpoint.cc
 src/device.cc
 src/dwc_otg_device.cc
+src/dwc_otg_header.h
 src/endpoint.cc
 src/st_device.cc
 src/standard_requests.cc
