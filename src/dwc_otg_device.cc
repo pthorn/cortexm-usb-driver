@@ -312,21 +312,26 @@ void DWC_OTG_Device::init_interrupts()
     //USB_CORE->GINTSTS = 0xffffffff;  // TODO OR only necessary bits
 
     USB_CORE->GINTMSK =
-        USB_OTG_GINTMSK_OTGINT   | // OTG interrupt
+        USB_OTG_GINTMSK_OTGINT   | // OTG interrupt TODO only when vbus_sense == true
         USB_OTG_GINTMSK_USBRST   | // USB reset
         USB_OTG_GINTMSK_ENUMDNEM | // speed enumeration done
         USB_OTG_GINTMSK_RXFLVLM  | // RX FIFO not empty
         USB_OTG_GINTMSK_IEPINT   | // IN endpoint interrupt
+        USB_OTG_GINTMSK_OEPINT   | // OUT endpoint interrupts
       //USB_OTG_GINTMSK_SOFM     | // start of frame
         USB_OTG_GINTMSK_USBSUSPM | // suspend
         USB_OTG_GINTMSK_WUIM     | // resume
-        USB_OTG_GINTMSK_SRQIM    | // session request
+        USB_OTG_GINTMSK_SRQIM    | // session request TODO only when vbus_sense == true
         USB_OTG_GINTMSK_DISCINT  | // disconnect TODO host mode only?
         USB_OTG_GINTMSK_MMISM;     // mode mismatch
 
     USB_DEV->DIEPMSK =             // for all IN endpoints
         USB_OTG_DIEPMSK_XFRCM;     // transfer complete
-    // there is also DIEPEMPMSK - masks IN endpoint FIFO empty interrupt generation
+    // TXFE (IN endpoint FIFO empty) is masked by DIEPEMPMSK
+
+    USB_DEV->DOEPMSK =             // for all OUT endpoints
+        USB_OTG_DOEPMSK_STUPM |    // setup stage complete
+        USB_OTG_DOEPMSK_XFRCM;     // transfer complete
 
     // Note: PTXFELVL bit is not accessible in device mode
     USB_CORE->GAHBCFG |=
@@ -360,7 +365,7 @@ void DWC_OTG_Device::init_ep0()
     // configure and activate OUT to prepare for SETUP packets
 
     USB_OUTEP(0)->DOEPTSIZ =
-        (1 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
+        (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
         (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
         // TODO ep0 transfer size, currently = max pkt size
         // TODO depends on speed?
@@ -372,7 +377,10 @@ void DWC_OTG_Device::init_ep0()
         (0 << USB_OTG_DOEPCTL_MPSIZ_Pos) |    // max packet size, 0 = 64 bytes
         USB_OTG_DOEPCTL_CNAK;
 
-    USB_DEV->DAINTMSK |= 1 << 0;  // TODO do we need interrupts for OUT EP 0
+    // enable interrupts for EP0 IN and OUT
+    USB_DEV->DAINTMSK |=
+        (1 << (0 + USB_OTG_DAINTMSK_IEPM_Pos)) |
+        (1 << (0 + USB_OTG_DAINTMSK_OEPM_Pos));
 }
 
 
@@ -461,15 +469,23 @@ void DWC_OTG_Device::isr()
         return;
     }
 
-    if (gintsts & USB_OTG_GINTSTS_RXFLVL) {
-        print("RXFLVL\n");
-        isr_read_rxfifo();
+    // must be handled before RXFLVL because the RXFLVL handler
+    // affects generation of OUT EP interrupts
+    if (gintsts & USB_OTG_GINTSTS_OEPINT) {
+        print("OEPINT\n");
+        isr_out_ep_interrupt();
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_IEPINT) {
         print("IEPINT\n");
         isr_in_ep_interrupt();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_RXFLVL) {
+        print("RXFLVL\n");
+        isr_read_rxfifo();
         return;
     }
 
@@ -593,7 +609,7 @@ void DWC_OTG_Device::isr_read_rxfifo()
     // read the receive status pop register
     uint32_t const status = USB_CORE->GRXSTSP;
     uint8_t  const ep_n = status & USB_OTG_GRXSTSP_EPNUM;
-    uint32_t const len = (status & USB_OTG_GRXSTSP_BCNT) >> 4;
+    uint32_t const len = (status & USB_OTG_GRXSTSP_BCNT) >> USB_OTG_GRXSTSP_BCNT_Pos;
     PacketStatus const packet_status = static_cast<PacketStatus>(
         (status & USB_OTG_GRXSTSP_PKTSTS) >> USB_OTG_GRXSTSP_PKTSTS_Pos);
 
@@ -645,7 +661,7 @@ void DWC_OTG_Device::isr_read_rxfifo()
             //print("re-init OUT 0");
 
             USB_OUTEP(0)->DOEPTSIZ =
-                (1 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
+                (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
                 (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
                 // TODO ep0 transfer size, currently = max pkt size
                 // TODO depends on speed?
@@ -659,15 +675,47 @@ void DWC_OTG_Device::isr_read_rxfifo()
         }
     }
 
-    if (packet_status == PacketStatus::SetupComplete) {
-        endpoint_0.on_setup_stage();
+//    if (packet_status == PacketStatus::SetupComplete) {
+//    }
+
+//    if (packet_status == PacketStatus::OutComplete) {
+//    }
+}
+
+
+void DWC_OTG_Device::isr_out_ep_interrupt()
+{
+    uint16_t out_ep_interrupt_flags =
+        (USB_DEV->DAINT & USB_OTG_DAINT_OEPINT) >> USB_OTG_DAINT_OEPINT_Pos;
+    uint8_t ep_n = 0;
+
+    // TODO assert in_ep_flags != 0
+    if (out_ep_interrupt_flags == 0) {
         return;
     }
 
-    if (packet_status == PacketStatus::OutComplete) {
+    while ((out_ep_interrupt_flags & 1) == 0) {
+        out_ep_interrupt_flags >>= 1;
+        ++ep_n;
+    }
+
+    auto ep = endpoints[ep_n];
+    if (ep == nullptr) {
+        print("!!! EP {} is null, halt\n", ep_n);
+        while (true) ;;
+    }
+
+    if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_STUP) {
+        print("OUT {} STUP\n", ep_n);
+        USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_STUP; // clear interrupt
+        endpoint_0.on_setup_stage();
+    }
+
+    if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_XFRC) {
+        print("OUT {} XFRC\n", ep_n);
+        USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_XFRC; // clear interrupt
         // TODO docs say read DOEPTSIZx to determine size of payload,
         // it could be less than expected
-
         ep->on_out_transfer_complete();
     }
 }
@@ -675,7 +723,8 @@ void DWC_OTG_Device::isr_read_rxfifo()
 
 void DWC_OTG_Device::isr_in_ep_interrupt()
 {
-    uint16_t in_ep_interrupt_flags = USB_DEV->DAINT & USB_OTG_DAINT_IEPINT;
+    uint16_t in_ep_interrupt_flags =
+        (USB_DEV->DAINT & USB_OTG_DAINT_IEPINT) >> USB_OTG_DAINT_IEPINT_Pos;
     uint8_t ep_n = 0;
 
     // TODO assert in_ep_flags != 0
@@ -699,7 +748,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
         (USB_DEV->DIEPEMPMSK & (1 << ep_n))
     ) {
         uint16_t const avail_words = USB_INEP(ep_n)->DTXFSTS;
-        print("EP {} TXFE avail {}\n", ep_n, avail_words * 4); //, DIEPTSIZ 0x{:x} USB_INEP(ep_n)->DIEPTSIZ);
+        print("IN {} TXFE avail {}\n", ep_n, avail_words * 4); //, DIEPTSIZ 0x{:x} USB_INEP(ep_n)->DIEPTSIZ);
 
         if (ep->get_remaining() > 0) {
             uint16_t const chunk_size = std::min(
@@ -724,13 +773,12 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
     // transfer completed
     if (USB_INEP(ep_n)->DIEPINT & USB_OTG_DIEPINT_XFRC) {
-        print("EP {} XFRC\n", ep_n);
+        print("IN {} XFRC\n", ep_n);
         USB_INEP(ep_n)->DIEPINT = USB_OTG_DIEPINT_XFRC;
-
         ep->on_in_transfer_complete();
     }
 
 //    print("isr_in_ep_interrupt(): unknown, ep={} DIEPINT=0x{:x}\n",
-//        ep, USB_INEP(ep)->DIEPINT );
+//        ep, USB_INEP(ep)->DIEPINT);
 //    while (true) ;;
 }

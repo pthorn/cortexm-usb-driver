@@ -57,6 +57,7 @@ private:
     void isr_usb_reset();
     void isr_speed_complete();
     void isr_read_rxfifo();
+    void isr_out_ep_interrupt();
     void isr_in_ep_interrupt();
 
     size_t const base_addr;
