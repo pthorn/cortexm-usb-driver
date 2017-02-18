@@ -68,6 +68,9 @@ void DWC_OTG_Device::init()
     init_interrupts();
     init_nvic();
     //init_ep0();
+
+    // SDIS is set by default on F7
+    USB_DEV->DCTL &= ~USB_OTG_DCTL_SDIS;
 }
 
 
@@ -254,42 +257,52 @@ void DWC_OTG_Device::init_usb()
     USB_CORE->GUSBCFG  |= USB_OTG_GUSBCFG_PHYSEL;
 
     // wait for AHB idle
-    // TODO why do it just before core reset?
-    // TODO printf if it is not idle
     while (!(USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL)) ;;
 
     // soft reset core
-    // "When you change the PHY, the corresponding clock for the PHY is selected and used
-    // in the PHY domain. Once a new clock is selected, the PHY domain has to be reset
-    // for proper operation."
     USB_CORE->GRSTCTL |= USB_OTG_GRSTCTL_CSRST;
     while (USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_CSRST);
 
-    // configure PHY
-    // note: PA9/PB13 is only free to be used as GPIO when NOVBUSSENS is set
+    // wait for AHB idle
+    while (!(USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL)) ;;
 
-    constexpr bool vbus_sensing = true;  // TODO parameter
-
-    uint32_t gccfg = vbus_sensing ?
-        USB_OTG_GCCFG_VBUSBSEN :    // Enable Vbus sensing for “B” device
-        USB_OTG_GCCFG_NOVBUSSENS;   // Disable Vbus sensing
-    USB_CORE->GCCFG =
-        gccfg |
-        USB_OTG_GCCFG_PWRDWN;       // Power down deactivated (“Transceiver active”)
-
-    // clear SDIS because newer version set it by default(?)
-    USB_DEV->DCTL &= ~USB_OTG_DCTL_SDIS;
+    USB_CORE->GCCFG |= USB_OTG_GCCFG_PWRDWN;  // Power down deactivated (“Transceiver active”)
 
     // USB configuration
-    USB_CORE->GUSBCFG |=
+    USB_CORE->GUSBCFG = (USB_CORE->GUSBCFG & ~(0xf << USB_OTG_GUSBCFG_TRDT_Pos)) |
         USB_OTG_GUSBCFG_FDMOD |            // force device mode
-        (10 << USB_OTG_GUSBCFG_TRDT_Pos);  // slowest TRDT TODO
+        (6 << USB_OTG_GUSBCFG_TRDT_Pos);  // TODO TRDT value?
         // SRP off
         // HNP off
         // TODO FS timeout calibration?
 
+    // note: PA9/PB13 is only free to be used as GPIO when NOVBUSSENS is set
+
+    constexpr bool vbus_sensing = false;  // TODO parameter
+
+    if (vbus_sensing) {
+#ifdef USB_OTG_GCCFG_VBDEN
+        USB_CORE->GCCFG |= USB_OTG_GCCFG_VBDEN;
+#else
+        USB_CORE->GCCFG |= USB_OTG_GCCFG_VBUSBSEN;  // Enable Vbus sensing for “B” device
+#endif
+    } else {
+#ifdef USB_OTG_GCCFG_VBDEN
+        USB_CORE->GCCFG &= ~USB_OTG_GCCFG_VBDEN;
+
+        // B-session valid override
+        USB_CORE->GOTGCTL |=
+            USB_OTG_GOTGCTL_BVALOEN |
+            USB_OTG_GOTGCTL_BVALOVAL;
+#else
+        USB_CORE->GCCFG |= USB_OTG_GCCFG_NOVBUSSENS;  // Disable Vbus sensing
+#endif
+    }
+
     // restart the PHY clock
     *((uint32_t *)(USB_OTG_FS_PERIPH_BASE + USB_OTG_PCGCCTL_BASE)) = 0;
+
+    USB_DEV->DCFG |= USB_OTG_DCFG_DSPD;  // TODO ???
 }
 
 
