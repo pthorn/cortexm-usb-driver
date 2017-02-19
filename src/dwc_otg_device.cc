@@ -322,7 +322,6 @@ void DWC_OTG_Device::init_interrupts()
         USB_OTG_GINTMSK_USBSUSPM | // suspend
         USB_OTG_GINTMSK_WUIM     | // resume
         USB_OTG_GINTMSK_SRQIM    | // session request TODO only when vbus_sense == true
-        USB_OTG_GINTMSK_DISCINT  | // disconnect TODO host mode only?
         USB_OTG_GINTMSK_MMISM;     // mode mismatch
 
     USB_DEV->DIEPMSK =             // for all IN endpoints
@@ -505,8 +504,13 @@ void DWC_OTG_Device::isr()
 
     if (gintsts & USB_OTG_GINTSTS_USBSUSP) {
         // no activity on the bus for 3ms
-        print("USBSUSP\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBSUSP;  // rc_w1
+
+        if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
+            print("USBSUSP\n");
+            // TODO call callback
+        }
+
         return;
     }
 
@@ -517,22 +521,21 @@ void DWC_OTG_Device::isr()
     }
 
     if (gintsts & USB_OTG_GINTSTS_SRQINT) {
-        // cable connect?
-        print("SRQINT\n");
+        print("SRQINT\n");  // cable connect
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
+        // TODO call callback
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_OTGINT) {
-        print("OTGINT, GOTGINT=0x{:x}\n", USB_CORE->GOTGINT);
-        //USB_CORE->GOTGINT & USB_OTG_GOTGINT_SEDET -> session end (cable disconnect)
+        uint32_t const gotgint = USB_CORE->GOTGINT;
         USB_CORE->GOTGINT = 0xFFFFFFFF;
-        return;
-    }
 
-    if (gintsts & USB_OTG_GINTSTS_DISCINT) {
-        print("DISCINT\n");
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_DISCINT; // rc_w1
+        if (gotgint & USB_OTG_GOTGINT_SEDET) {
+            print("SEDET\n");  // session end (cable disconnect)
+            // TODO call callback
+        }
+
         return;
     }
 
