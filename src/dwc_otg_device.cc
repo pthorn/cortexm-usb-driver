@@ -417,9 +417,6 @@ void DWC_OTG_Device::init_in_endpoint(Endpoint* ep)
         fifo_end;
     fifo_end += tx_fifo_size_words;
 
-    // enable EP-specific interrupt
-    USB_DEV->DAINTMSK |= 1 << ep->get_number();
-
     USB_INEP(ep->get_number())->DIEPCTL =
         USB_OTG_DIEPCTL_USBAEP |               // activate EP
         (static_cast<uint32_t>(ep->get_type()) << USB_OTG_DIEPCTL_EPTYP_Pos) |
@@ -429,7 +426,11 @@ void DWC_OTG_Device::init_in_endpoint(Endpoint* ep)
         USB_OTG_DIEPCTL_SD0PID_SEVNFRM |
         USB_OTG_DIEPCTL_SNAK;
 
-    print("init_in_endpoint(): ep {}, type {}, inout {}, maxpkt {}, txfifo size {}, fifo end {}\n",
+    // enable EP-specific interrupt
+    USB_DEV->DAINTMSK |=
+        (1 << (ep->get_number() + USB_OTG_DAINTMSK_IEPM_Pos));
+
+    print("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
         ep->get_number(),
         static_cast<uint32_t>(ep->get_type()),
         static_cast<uint32_t>(ep->get_inout()),
@@ -450,7 +451,11 @@ void DWC_OTG_Device::init_out_endpoint(Endpoint* ep)
         (ep->get_max_pkt_size() << USB_OTG_DIEPCTL_MPSIZ_Pos) |
         USB_OTG_DOEPCTL_CNAK;
 
-    print("init_out_endpoint(): ep {}\n", ep->get_number());
+    // enable EP-specific interrupt
+    USB_DEV->DAINTMSK |=
+        (1 << (ep->get_number() + USB_OTG_DAINTMSK_OEPM_Pos));
+
+    print("init_out_endpoint(): ep %s\n", ep->get_number());
 }
 
 
