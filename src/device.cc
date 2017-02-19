@@ -15,7 +15,7 @@ Device::Device(
 void Device::add_ep(Endpoint& ep) {
     // TODO check endpoint number
     if (ep.get_number() >= NO_OF_ENDPOINTS) {
-        print("add_ep(): bad EP #{}\n", ep.get_number());
+        print("add_ep(): bad EP #%s\n", ep.get_number());
         return;
     }
 

@@ -123,7 +123,7 @@ void DWC_OTG_Device::start_in_transfer(Endpoint* ep)
     uint32_t const chunk_size = std::min(
         ep->get_remaining(), (size_t)ep->get_tx_fifo_size());
 
-    print("start_IN_transfer(): ep {}, bytes {}, npkt {}, first chunk {}\n",
+    print("start_IN_transfer(): ep %s, bytes %s, npkt %s, first chunk %s\n",
           ep->get_number(), ep->get_remaining(), n_packets, chunk_size);
 
     // program packet count and transfer size in bytes
@@ -146,7 +146,7 @@ void DWC_OTG_Device::start_in_transfer(Endpoint* ep)
     // TODO race condition?
     if (ep->get_remaining() > 0) {
         USB_DEV->DIEPEMPMSK |= 1 << ep->get_number();
-        print("start_IN_transfer(): en intr, rem {}\n", ep->get_remaining());
+        print("start_IN_transfer(): en intr, rem %s\n", ep->get_remaining());
     }
 }
 
@@ -463,10 +463,10 @@ void DWC_OTG_Device::isr()
 {
     uint32_t gintsts = USB_CORE->GINTSTS;
 
-//    print("\n isr() gintsts=0x{:x} gintmsk=0x{:x} masked=0x{:x}\n",
+//    print("\n isr() gintsts=%#10x gintmsk=%#10x masked=%#10x\n",
 //          gintsts, USB_CORE->GINTMSK, gintsts & USB_CORE->GINTMSK);
 
-    print("\nisr() masked=0x{:x} - ", gintsts & USB_CORE->GINTMSK);
+    print("\nisr() masked=%#10x - ", gintsts & USB_CORE->GINTMSK);
 
     if ((gintsts & USB_CORE->GINTMSK) == 0) {
         print("???\n");
@@ -623,11 +623,11 @@ void DWC_OTG_Device::isr_read_rxfifo()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP {} is null\n", ep_n);
+        print("!!! EP %s is null\n", ep_n);
         while (true) ;;
     }
 
-    print("isr_read_rxfifo() pktsts={} ep={} len={}\n",
+    print("isr_read_rxfifo() pktsts=%s ep=%s len=%s\n",
         pktsts_names[static_cast<uint32_t>(packet_status)], ep_n, len);
 
     if (packet_status == PacketStatus::SetupPacket) {
@@ -709,18 +709,18 @@ void DWC_OTG_Device::isr_out_ep_interrupt()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP {} is null, halt\n", ep_n);
+        print("!!! EP %s is null, halt\n", ep_n);
         while (true) ;;
     }
 
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_STUP) {
-        print("OUT {} STUP\n", ep_n);
+        print("OUT %s STUP\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_STUP; // clear interrupt
         endpoint_0.on_setup_stage();
     }
 
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_XFRC) {
-        print("OUT {} XFRC\n", ep_n);
+        print("OUT %s XFRC\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_XFRC; // clear interrupt
         // TODO docs say read DOEPTSIZx to determine size of payload,
         // it could be less than expected
@@ -747,7 +747,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP {} is null, halt\n", ep_n);
+        print("!!! EP %s is null, halt\n", ep_n);
         while (true) ;;
     }
 
@@ -756,7 +756,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
         (USB_DEV->DIEPEMPMSK & (1 << ep_n))
     ) {
         uint16_t const avail_words = USB_INEP(ep_n)->DTXFSTS;
-        print("IN {} TXFE avail {}\n", ep_n, avail_words * 4); //, DIEPTSIZ 0x{:x} USB_INEP(ep_n)->DIEPTSIZ);
+        print("IN %s TXFE avail %s\n", ep_n, avail_words * 4); //, DIEPTSIZ %#10x USB_INEP(ep_n)->DIEPTSIZ);
 
         if (ep->get_remaining() > 0) {
             uint16_t const chunk_size = std::min(
@@ -769,7 +769,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
             ep->on_transferred(chunk_size);
 
-            print("  TXFE: pushed {}, rem {}\n", chunk_size, ep->get_remaining());
+            print("  TXFE: pushed %s, rem %s\n", chunk_size, ep->get_remaining());
         }
 
         if (ep->get_remaining() == 0) {
@@ -781,12 +781,12 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
     // transfer completed
     if (USB_INEP(ep_n)->DIEPINT & USB_OTG_DIEPINT_XFRC) {
-        print("IN {} XFRC\n", ep_n);
+        print("IN %s XFRC\n", ep_n);
         USB_INEP(ep_n)->DIEPINT = USB_OTG_DIEPINT_XFRC;
         ep->on_in_transfer_complete();
     }
 
-//    print("isr_in_ep_interrupt(): unknown, ep={} DIEPINT=0x{:x}\n",
+//    print("isr_in_ep_interrupt(): unknown, ep=%s DIEPINT=%#10x\n",
 //        ep, USB_INEP(ep)->DIEPINT);
 //    while (true) ;;
 }

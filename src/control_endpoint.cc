@@ -6,7 +6,7 @@
 
 void ControlEndpoint::on_setup_stage()
 {
-    print("ControlEndpoint::on_setup_stage() bmRT=0x{:x} bR=0x{:x} wI={} wV={} wL={}\n",
+    print("ControlEndpoint::on_setup_stage() bmRT=%#x bR=%#x wI=%s wV=%s wL=%s\n",
         setup_packet.bmRequestType, setup_packet.bRequest,
         setup_packet.wIndex, setup_packet.wValue,
         setup_packet.wLength);

@@ -26,7 +26,7 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_ADDRESS
     ) {
-        print("set address {}\n", get_setup_pkt().wValue);
+        print("set address %s\n", get_setup_pkt().wValue);
 
         device->set_address(get_setup_pkt().wValue);
 
@@ -39,7 +39,7 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_CONFIGURATION
     ) {
-        print("set configuration {}\n", get_setup_pkt().wValue & 0xFF);
+        print("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
 
         if (device->set_configuration(get_setup_pkt().wValue & 0xFF)) {
             device->transmit_zlp(&get_ep0());  // status stage TODO make lower level do this?
@@ -102,7 +102,7 @@ SetupResult StandardRequests::send_descriptor()
     uint8_t const descriptor_index = get_setup_pkt().wValue & 0xFF;
     uint16_t const descriptor_lang_id = get_setup_pkt().wIndex;
 
-    print("send_descriptor() type=0x{:x} index={} langid=0x{:x}: ",
+    print("send_descriptor() type=%#x index=%s langid=%#x: ",
         descriptor_type, descriptor_index, descriptor_lang_id);
 
     unsigned char const* descriptor_buf;
