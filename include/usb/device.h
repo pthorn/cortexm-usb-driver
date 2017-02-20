@@ -32,6 +32,7 @@ public:
     virtual void start_in_transfer(Endpoint* ep) = 0;  // TODO &
     virtual void start_out_transfer(Endpoint* ep) = 0;
     virtual void transmit_zlp(Endpoint *ep) = 0;
+    virtual void ep0_receive_zlp() = 0;
     virtual void stall(uint8_t ep) = 0;
 
 public:

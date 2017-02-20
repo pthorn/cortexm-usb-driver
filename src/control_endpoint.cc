@@ -23,9 +23,22 @@ void ControlEndpoint::on_setup_stage()
         }
 
         if (result == SetupResult::DATA_STAGE) {
-            state = CtrlState::SETUP_STAGE_COMPLETE;
+            // data stage transfer has been initialized by a handler
+            print("CE: status stage compl, data stage\n");
+            state = CtrlState::DATA_STAGE;
+
         } else if (result == SetupResult::NO_DATA_STAGE) {
-            state = CtrlState::DATA_STAGE_COMPLETE;
+            // initialize status stage
+            if (setup_packet.bmRequestType & ENDPOINT_IN) {
+                print("CE: IN status stage compl, no data stage, receiving (OUT) ZLP\n");
+                device->ep0_receive_zlp();
+            } else {
+                print("CE: OUT status stage compl, no data stage, sending (IN) ZLP\n");
+                device->transmit_zlp(&device->endpoint_0);
+            }
+
+            state = CtrlState::STATUS_STAGE;
+
         } else if (result == SetupResult::STALL) {
             break;  // stall
         }
@@ -35,8 +48,6 @@ void ControlEndpoint::on_setup_stage()
     }
 
     device->stall(get_number());
-
-    // TODO what now
 }
 
 
@@ -45,25 +56,25 @@ void ControlEndpoint::on_in_transfer_complete()
 {
     if (current_handler == nullptr) {
         print("ControlEndpoint::on_in_transfer_complete(): current_handler == nullptr!\n");
-        while (true) ;;
+        return;
     }
 
-    if (state == CtrlState::SETUP_STAGE_COMPLETE) {
-        if (current_handler != nullptr) {
-            auto result = current_handler->handle_ctrl_in_data_stage();
-            // TODO implement stall here
+    if (state == CtrlState::DATA_STAGE) {
+        auto result = current_handler->handle_ctrl_in_data_stage();
+
+        if (result == DataResult::DONE) {
+            print("CE: IN data stage compl, receiving (OUT) ZLP\n");
+            // init status stage
+            device->ep0_receive_zlp();
+        } else {
+            print("CE: IN data stage compl, STALL\n");
+            device->stall(0);
         }
 
-        // TODO reinit for status stage
-        // Note: the handler will init the OUT status stage TODO do it all here!
-        // but the IN status stage must be initialized here(?)
-        state = CtrlState::DATA_STAGE_COMPLETE;
+        state = CtrlState::STATUS_STAGE;
 
-    } else if (state == CtrlState::DATA_STAGE_COMPLETE) {
-        if (current_handler != nullptr) {
-            current_handler->handle_ctrl_status_stage();
-        }
-
+    } else if (state == CtrlState::STATUS_STAGE) {
+        current_handler->handle_ctrl_status_stage();
         reinit();
     }
 }
@@ -73,26 +84,26 @@ void ControlEndpoint::on_in_transfer_complete()
 void ControlEndpoint::on_out_transfer_complete()
 {
     if (current_handler == nullptr) {
-        print("ControlEndpoint::on_in_transfer_complete(): current_handler == nullptr!\n");
-        while (true) ;;
+        print("ControlEndpoint::on_out_transfer_complete(): current_handler == nullptr!\n");
+        return;
     }
 
-    if (state == CtrlState::SETUP_STAGE_COMPLETE) {
-        if (current_handler != nullptr) {
-            auto result = current_handler->handle_ctrl_out_data_stage();
-            // TODO implement stall here
+    if (state == CtrlState::DATA_STAGE) {
+        auto result = current_handler->handle_ctrl_out_data_stage();
+
+        if (result == DataResult::DONE) {
+            print("CE: OUT data stage compl, sending (IN) ZLP\n");
+            // init status stage
+            device->transmit_zlp(&device->endpoint_0);
+        } else {
+            print("CE: OUT data stage compl, STALL\n");
+            device->stall(0);
         }
 
-        // TODO reinit for status stage
-        // Note: the handler will init the OUT status stage TODO do it all here!
-        // but the IN status stage must be initialized here(?)
-        state = CtrlState::DATA_STAGE_COMPLETE;
+        state = CtrlState::STATUS_STAGE;
 
-    } else if (state == CtrlState::DATA_STAGE_COMPLETE) {
-        if (current_handler != nullptr) {
-            current_handler->handle_ctrl_status_stage();
-        }
-
+    } else if (state == CtrlState::STATUS_STAGE) {
+        current_handler->handle_ctrl_status_stage();
         reinit();
     }
 }
@@ -102,5 +113,5 @@ void ControlEndpoint::reinit()
 {
     state = CtrlState::START;
     current_handler = nullptr;
-    // TODO init EP0 to rx another setup pkt!
+    // TODO init EP0 to rx another setup pkt
 }

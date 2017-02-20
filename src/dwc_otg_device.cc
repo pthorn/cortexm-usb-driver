@@ -184,6 +184,23 @@ void DWC_OTG_Device::transmit_zlp(Endpoint *ep)
 }
 
 
+void DWC_OTG_Device::ep0_receive_zlp()
+{
+    print("reinit ep0\n");
+
+    USB_OUTEP(0)->DOEPTSIZ =
+        (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
+        (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
+        // TODO ep0 transfer size, currently = max pkt size
+        // TODO depends on speed?
+        endpoint_0.get_max_pkt_size();         // note: must be extended to next word boundary
+
+    USB_OUTEP(0)->DOEPCTL |=
+        USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
+        USB_OTG_DOEPCTL_CNAK;     // clear NAK bit
+}
+
+
 // TODO support STALL for OUT EPs
 // TODO support unSTALL bulk/interrupt EPs
 void DWC_OTG_Device::stall(uint8_t ep)

@@ -27,10 +27,7 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         get_setup_pkt().bRequest == SET_ADDRESS
     ) {
         print("set address %s\n", get_setup_pkt().wValue);
-
         device->set_address(get_setup_pkt().wValue);
-
-        device->transmit_zlp(&get_ep0());  // status stage
         return SetupResult::NO_DATA_STAGE;
     }
 
@@ -42,7 +39,6 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         print("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
 
         if (device->set_configuration(get_setup_pkt().wValue & 0xFF)) {
-            device->transmit_zlp(&get_ep0());  // status stage TODO make lower level do this?
             return SetupResult::NO_DATA_STAGE;
         }
 
@@ -54,8 +50,6 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
        get_setup_pkt().bRequest == SET_INTERFACE
     ) {
         print("set interface\n");
-
-        device->transmit_zlp(&get_ep0());  // status stage
         return SetupResult::NO_DATA_STAGE;
     }
 
@@ -80,13 +74,13 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
 
 DataResult StandardRequests::handle_ctrl_in_data_stage()
 {
-    return DataResult::UNHANDLED;
+    return DataResult::DONE;
 }
 
 
 DataResult StandardRequests::handle_ctrl_out_data_stage()
 {
-    return DataResult::UNHANDLED;
+    return DataResult::DONE;
 }
 
 

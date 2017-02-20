@@ -70,7 +70,6 @@ enum class SetupResult {
 };
 
 enum class DataResult {
-    UNHANDLED,
     DONE,
     STALL  // STALL the status stage
 };

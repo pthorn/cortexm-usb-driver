@@ -41,6 +41,7 @@ public:
     void start_in_transfer(Endpoint* ep) override;  // TODO &
     void start_out_transfer(Endpoint* ep) override;
     void transmit_zlp(Endpoint *ep) override;
+    void ep0_receive_zlp();
     void stall(uint8_t ep) override;
 
 private:

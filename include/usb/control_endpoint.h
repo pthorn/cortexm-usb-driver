@@ -10,9 +10,8 @@ class USBClass;
 
 enum class CtrlState {
     START,
-    //SETUP_RX,
-    SETUP_STAGE_COMPLETE,
-    DATA_STAGE_COMPLETE
+    DATA_STAGE,
+    STATUS_STAGE
 };
 
 
