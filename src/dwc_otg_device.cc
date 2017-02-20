@@ -207,37 +207,18 @@ void DWC_OTG_Device::init_clocks()
 
 void DWC_OTG_Device::init_gpio()
 {
+    // USB_FS F4 and F7 pins:
+    //   PA9: USB_FS_VBUS (controlled by USB_OTG_GCCFG_NOVBUSSENS)
+    //   PA11: USB_FS_DM (AF)
+    //   PA12: USB_FS_DP (AF)
+
     GPIO_InitTypeDef GPIO_InitStruct = {};
-
-    // PA9     ------> USB_CORE_VBUS
-    //GPIO_InitStruct.Pin = GPIO_PIN_9;
-    //GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-    //GPIO_InitStruct.Pull = GPIO_NOPULL;
-    //HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-    // PA11     ------> USB_CORE_DM
-    // PA12     ------> USB_CORE_DP
     GPIO_InitStruct.Pin = GPIO_PIN_11 | GPIO_PIN_12;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;  // TODO GPIO_SPEED_FREQ_VERY_HIGH
     GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-/* TODO
-    Pin usb_dm(GPIOA, 11);
-    Pin usb_dp(GPIOA, 12);
-
-    usb_dm
-        .set_mode(Pin::Mode::AF)
-        .set_speed(Pin::Speed::High)
-        .set_af(10);
-
-    usb_dp
-        .set_mode(Pin::Mode::AF)
-        .set_speed(Pin::Speed::High)
-        .set_af(10);
-*/
 }
 
 
