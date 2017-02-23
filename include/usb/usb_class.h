@@ -11,26 +11,30 @@ protected:
     USBClass() = default;
 
 public:
-    // TODO attach directly to device?
     void on_attached(Device* device) {
         //this->ep0 = ep0;
         this->device = device;
     }
 
-    // global USB events
-    // TODO VBUS detect?
-    virtual void on_set_configuration(uint8_t configuration) = 0;
-    //virtual void on_suspend() = 0;
+    // VBUS detect
+    virtual void on_connect();
+    virtual void on_disconnect();
+
+    // USB events
+    virtual void on_reset();
+    virtual void on_set_configuration(uint8_t configuration);
+    virtual void on_suspend();
+    virtual void on_resume();
 
     // control transfers
-    virtual SetupResult handle_ctrl_setup_stage() = 0;
-    virtual DataResult handle_ctrl_in_data_stage() = 0;
-    virtual DataResult handle_ctrl_out_data_stage() = 0;
-    virtual void handle_ctrl_status_stage() = 0;
+    virtual SetupResult handle_ctrl_setup_stage();
+    virtual DataResult handle_ctrl_in_data_stage();
+    virtual DataResult handle_ctrl_out_data_stage();
+    virtual void handle_ctrl_status_stage();
 
     // other transfers
-    virtual void handle_in_transfer(Endpoint& ep) = 0;
-    virtual void handle_out_transfer(Endpoint& ep) = 0;
+    virtual void handle_in_transfer(Endpoint& ep);
+    virtual void handle_out_transfer(Endpoint& ep);
 
 protected:
     Endpoint& get_ep(uint8_t n) {
