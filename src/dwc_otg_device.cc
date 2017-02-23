@@ -67,7 +67,6 @@ void DWC_OTG_Device::init()
     init_usb();
     init_interrupts();
     init_nvic();
-    //init_ep0();
 
     // SDIS is set by default on F7
     USB_DEV->DCTL &= ~USB_OTG_DCTL_SDIS;
@@ -184,12 +183,39 @@ void DWC_OTG_Device::transmit_zlp(Endpoint *ep)
 }
 
 
+// TODO support STALL for OUT EPs
+// TODO support unSTALL bulk/interrupt EPs
+void DWC_OTG_Device::stall(uint8_t ep)
+{
+    // control endpoints: the core clears STALL bit when a SETUP token is received
+    // bulk and interrupt endpoints: core never clears this bit
+    USB_INEP(ep)->DIEPCTL = USB_OTG_DIEPCTL_STALL;
+}
+
+
 void DWC_OTG_Device::ep0_receive_zlp()
 {
-    print("reinit ep0\n");
+    print("ep0_receive_zlp()\n");
 
     USB_OUTEP(0)->DOEPTSIZ =
-        (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
+        (0 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // no SETUP packets
+        (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
+        // TODO ep0 transfer size, currently = max pkt size
+        // TODO zero?
+        endpoint_0.get_max_pkt_size();
+
+    USB_OUTEP(0)->DOEPCTL |=
+        USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
+        USB_OTG_DOEPCTL_CNAK;     // clear NAK bit
+}
+
+
+void DWC_OTG_Device::ep0_init_ctrl_transfer()
+{
+    print("ep0_receive_zlp()\n");
+
+    USB_OUTEP(0)->DOEPTSIZ =
+        (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 3 SETUP packets
         (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
         // TODO ep0 transfer size, currently = max pkt size
         // TODO depends on speed?
@@ -198,16 +224,6 @@ void DWC_OTG_Device::ep0_receive_zlp()
     USB_OUTEP(0)->DOEPCTL |=
         USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
         USB_OTG_DOEPCTL_CNAK;     // clear NAK bit
-}
-
-
-// TODO support STALL for OUT EPs
-// TODO support unSTALL bulk/interrupt EPs
-void DWC_OTG_Device::stall(uint8_t ep)
-{
-    // control endpoints: the core clears STALL bit when a SETUP token is received
-    // bulk and interrupt endpoints: core never clears this bit
-    USB_INEP(ep)->DIEPCTL = USB_OTG_DIEPCTL_STALL;
 }
 
 

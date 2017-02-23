@@ -33,6 +33,7 @@ public:
     virtual void start_out_transfer(Endpoint* ep) = 0;
     virtual void transmit_zlp(Endpoint *ep) = 0;
     virtual void ep0_receive_zlp() = 0;
+    virtual void ep0_init_ctrl_transfer() = 0;
     virtual void stall(uint8_t ep) = 0;
 
 public:

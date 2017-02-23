@@ -40,9 +40,12 @@ public:
 
     void start_in_transfer(Endpoint* ep) override;  // TODO &
     void start_out_transfer(Endpoint* ep) override;
-    void transmit_zlp(Endpoint *ep) override;
-    void ep0_receive_zlp();
     void stall(uint8_t ep) override;
+
+    // for use by ControlEndpoint
+    void transmit_zlp(Endpoint *ep) override;
+    void ep0_receive_zlp() override;
+    void ep0_init_ctrl_transfer() override;
 
 private:
     void init_clocks();

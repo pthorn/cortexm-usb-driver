@@ -111,7 +111,7 @@ void ControlEndpoint::on_out_transfer_complete()
 
 void ControlEndpoint::reinit()
 {
+    device->ep0_init_ctrl_transfer();
     state = CtrlState::START;
     current_handler = nullptr;
-    // TODO init EP0 to rx another setup pkt
 }
