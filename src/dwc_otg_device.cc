@@ -646,12 +646,18 @@ void DWC_OTG_Device::isr_read_rxfifo()
 
     if (packet_status == PacketStatus::SetupPacket) {
         // TODO assert len == 8 for setup packets?
+
+        uint8_t const stupcnt =
+            (USB_OUTEP(0)->DOEPTSIZ >> USB_OTG_DOEPTSIZ_STUPCNT_Pos) & 3;
+
+        if (stupcnt != 2) {
+            print("--> STUPCNT %s\n", stupcnt);
+        }
+
         auto buf = endpoint_0.get_setup_pkt_buffer();
         read_packet(buf, len);
-        //endpoint_0.on_setup_pkt_received();
 
-        // TODO
-        //return;
+        return;
     }
 
     if (packet_status == PacketStatus::OutPacket) {
@@ -661,47 +667,7 @@ void DWC_OTG_Device::isr_read_rxfifo()
             read_packet(buffer, len);
             ep->on_filled(buffer, len);
         } // else what? need to discard pkt
-
-        // TODO
-        //return;
     }
-
-    // TODO temp code for EP0 only
-    // TODO re-enable aftert a transfer to rx another setup packet
-    if (ep_n == 0) {
-        if (packet_status == PacketStatus::OutPacket ||
-            packet_status == PacketStatus::SetupPacket) {
-            // discard any remaining bytes from the FIFO
-            // TODO
-            //for(uint32_t i = 0; i < rxfifo_bytes; i += 4) {
-            //    (void)USB_FIFO(0);  // TODO ???
-            //}
-
-            // re-enable endpoint to rx more data
-            // TODO!
-
-            //print("re-init OUT 0");
-
-            USB_OUTEP(0)->DOEPTSIZ =
-                (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 1 SETUP packet
-                (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
-                // TODO ep0 transfer size, currently = max pkt size
-                // TODO depends on speed?
-                endpoint_0.get_max_pkt_size();         // note: must be extended to next word boundary
-
-            USB_OUTEP(0)->DOEPCTL |=
-                USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
-                USB_OTG_DOEPCTL_CNAK;     // clear NAK bit
-
-            return;
-        }
-    }
-
-//    if (packet_status == PacketStatus::SetupComplete) {
-//    }
-
-//    if (packet_status == PacketStatus::OutComplete) {
-//    }
 }
 
 
