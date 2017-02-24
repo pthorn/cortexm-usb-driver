@@ -136,8 +136,8 @@ SetupResult StandardRequests::send_descriptor()
         break;
 
     default:
-        print("unknown, stall\n");
-        return SetupResult::STALL;
+        print("unknown\n");
+        return SetupResult::UNHANDLED;
     }
 
     // host can request more or fewer bytes than the actual descriptor size
