@@ -120,9 +120,9 @@ SetupResult StandardRequests::send_descriptor()
         if (descriptor_index == 0) {
             descriptor_buf = reinterpret_cast<unsigned char const*>(&lang_id_descriptor);
             descriptor_size = lang_id_descriptor.bLength;
-//        } else if (descriptor_index == 0xEE) {
-//            descriptor_buf = msft_string_descriptor;
-//            descriptor_size = msft_string_descriptor[0];
+        } else if (descriptor_index == 0xEE && msft_string_descriptor != nullptr) {
+            descriptor_buf = msft_string_descriptor;
+            descriptor_size = msft_string_descriptor[0];
         } else {
             //if (descriptor_index > sizeof(string_descriptors) / sizeof(string_descriptors[0])) {
             if (descriptor_index > string_descriptors_len) {
