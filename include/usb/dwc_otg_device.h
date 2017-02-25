@@ -67,7 +67,7 @@ private:
     size_t const base_addr;
     uint16_t const rxfifo_size;
     uint16_t const total_fifo_size;
-    uint8_t const max_ep_n;
+    uint8_t /*const*/ max_ep_n;
 
     State state;
     uint8_t current_configuration;

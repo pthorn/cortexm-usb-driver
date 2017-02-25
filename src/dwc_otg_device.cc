@@ -13,6 +13,8 @@
 //#define CORE_BASE base_addr
 #define USB_CORE ((USB_OTG_GlobalTypeDef *)CORE_BASE)
 //static USB_OTG_DeviceTypeDef * const USB_DEV = (USB_OTG_DeviceTypeDef *)((uint32_t)CORE_BASE + USB_OTG_DEVICE_BASE);
+#define GHWCFG2 ((volatile uint32_t *)(CORE_BASE + 0x48))
+#define GHWCFG3 ((volatile uint32_t *)(CORE_BASE + 0x4C))
 #define USB_DEV ((USB_OTG_DeviceTypeDef *)(CORE_BASE + USB_OTG_DEVICE_BASE))
 #define USB_INEP(i)  ((USB_OTG_INEndpointTypeDef *)(( uint32_t)CORE_BASE + USB_OTG_IN_ENDPOINT_BASE + (i)*USB_OTG_EP_REG_SIZE))
 #define USB_OUTEP(i) ((USB_OTG_OUTEndpointTypeDef *)((uint32_t)CORE_BASE + USB_OTG_OUT_ENDPOINT_BASE + (i)*USB_OTG_EP_REG_SIZE))
@@ -53,7 +55,7 @@ DWC_OTG_Device::DWC_OTG_Device(
     rxfifo_size(rxfifo_size),
     base_addr(core == Core::FS ? USB_OTG_FS_PERIPH_BASE : USB_OTG_HS_PERIPH_BASE),
     total_fifo_size(core == Core::FS ? USB_OTG_FS_TOTAL_FIFO_SIZE : USB_OTG_HS_TOTAL_FIFO_SIZE),
-    max_ep_n(core == Core::FS ? 3 : 5),
+    max_ep_n(0),
     fifo_end(0)
 {
     //add_ep(endpoint_0);
@@ -317,6 +319,9 @@ void DWC_OTG_Device::init_usb()
     *((volatile uint32_t *)(USB_OTG_FS_PERIPH_BASE + USB_OTG_PCGCCTL_BASE)) = 0;
 
     USB_DEV->DCFG |= USB_OTG_DCFG_DSPD;  // TODO ???
+
+    // obtain max endpoint number
+    max_ep_n = (*GHWCFG2 >> 10) & 0xf;
 }
 
 
