@@ -314,7 +314,7 @@ void DWC_OTG_Device::init_usb()
     }
 
     // restart the PHY clock
-    *((uint32_t *)(USB_OTG_FS_PERIPH_BASE + USB_OTG_PCGCCTL_BASE)) = 0;
+    *((volatile uint32_t *)(USB_OTG_FS_PERIPH_BASE + USB_OTG_PCGCCTL_BASE)) = 0;
 
     USB_DEV->DCFG |= USB_OTG_DCFG_DSPD;  // TODO ???
 }
