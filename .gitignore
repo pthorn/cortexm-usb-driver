@@ -2,7 +2,10 @@
 Makefile.local
 *.o
 *.a
-*.creator.user
+cortexm-usb-driver.config
+cortexm-usb-driver.creator*
+cortexm-usb-driver.files
+cortexm-usb-driver.includes
 *.pro.user
 *.pro.user.*
 *.qbs.user
