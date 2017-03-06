@@ -5,6 +5,8 @@
 
 #define NO_OF_ENDPOINTS 6
 
+
+
 class Endpoint;
 class ControlEndpoint;
 class USBClass;
@@ -27,7 +29,7 @@ public:
 
     // for use by StandardRequests
     virtual void set_address(uint16_t address) = 0;
-    virtual bool set_configuration(uint8_t configuration);
+    virtual bool set_configuration(uint8_t configuration) = 0;
     virtual void transmit_zlp(Endpoint *ep) = 0;
     virtual void ep0_receive_zlp() = 0;
     virtual void ep0_init_ctrl_transfer() = 0;

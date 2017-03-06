@@ -2,6 +2,7 @@
 
 #include "dwc_otg_header.h"
 #include "usb/dwc_otg_device.h"
+#include "device_pvt.h"
 #include "usb/defs.h"
 #include "usb/endpoint.h"
 #include "usb/control_endpoint.h"
@@ -103,7 +104,9 @@ bool DWC_OTG_Device::set_configuration(uint8_t configuration)
         current_configuration = configuration;
         state = State::CONFIGURED;
 
-        Device::set_configuration(configuration);
+        CALL_HANDLERS(on_set_configuration, configuration);
+
+        //Device::set_configuration(configuration);
 
         return true;
     } else {
@@ -532,7 +535,7 @@ void DWC_OTG_Device::isr()
 
         if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
             print("USBSUSP\n");
-            // TODO call callback
+            CALL_HANDLERS(on_suspend);
         }
 
         return;
@@ -541,13 +544,14 @@ void DWC_OTG_Device::isr()
     if (gintsts & USB_OTG_GINTSTS_WKUINT) {
         print("WKUINT\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_WKUINT;  // rc_w1
+        CALL_HANDLERS(on_resume);
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_SRQINT) {
         print("SRQINT\n");  // cable connect
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
-        // TODO call callback
+        CALL_HANDLERS(on_connect);
         return;
     }
 
@@ -557,7 +561,7 @@ void DWC_OTG_Device::isr()
 
         if (gotgint & USB_OTG_GOTGINT_SEDET) {
             print("SEDET\n");  // session end (cable disconnect)
-            // TODO call callback
+            CALL_HANDLERS(on_disconnect);
         }
 
         return;
@@ -610,6 +614,8 @@ void DWC_OTG_Device::isr_speed_complete()
     fifo_end = 0;
 
     init_ep0();
+
+    CALL_HANDLERS(on_reset);
 }
 
 

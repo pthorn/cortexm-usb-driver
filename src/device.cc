@@ -38,13 +38,13 @@ void Device::add_handler(USBClass* handler)
 }
 
 
-bool Device::set_configuration(uint8_t configuration)
-{
-    for (auto handler: handlers) {
-        if (handler == nullptr) {
-            continue;
-        }
+//bool Device::set_configuration(uint8_t configuration)
+//{
+//    for (auto handler: handlers) {
+//        if (handler == nullptr) {
+//            continue;
+//        }
 
-        handler->on_set_configuration(configuration);
-    }
-}
+//        handler->on_set_configuration(configuration);
+//    }
+//}
