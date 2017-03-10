@@ -518,6 +518,8 @@ void DWC_OTG_Device::isr()
     if (gintsts & USB_OTG_GINTSTS_USBRST) {
         print("USBRST\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBRST;  // rc_w1
+
+        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
         isr_usb_reset();
         return;
     }
@@ -535,6 +537,7 @@ void DWC_OTG_Device::isr()
 
         if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
             print("USBSUSP\n");
+            USB_CORE->GINTMSK &= ~USB_OTG_GINTMSK_USBSUSPM;  // disable suspend interrupt
             CALL_HANDLERS(on_suspend);
         }
 
@@ -544,6 +547,8 @@ void DWC_OTG_Device::isr()
     if (gintsts & USB_OTG_GINTSTS_WKUINT) {
         print("WKUINT\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_WKUINT;  // rc_w1
+
+        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
         CALL_HANDLERS(on_resume);
         return;
     }
