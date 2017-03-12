@@ -105,9 +105,6 @@ bool DWC_OTG_Device::set_configuration(uint8_t configuration)
         state = State::CONFIGURED;
 
         CALL_HANDLERS(on_set_configuration, configuration);
-
-        //Device::set_configuration(configuration);
-
         return true;
     } else {
         return false;

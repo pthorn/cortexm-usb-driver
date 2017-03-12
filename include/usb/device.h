@@ -29,6 +29,7 @@ public:
 
     // for use by StandardRequests
     virtual void set_address(uint16_t address) = 0;
+    bool get_configuration() { return current_configuration; }
     virtual bool set_configuration(uint8_t configuration) = 0;
     virtual void transmit_zlp(Endpoint *ep) = 0;
     virtual void ep0_receive_zlp() = 0;
@@ -44,6 +45,7 @@ public:
     ControlEndpoint& endpoint_0;  // TODO! ControlEndpoint uses this
 
 protected:
+    uint8_t current_configuration;
     //ControlEndpoint& endpoint_0;
     Endpoint* endpoints[NO_OF_ENDPOINTS];
     //USBClass* handlers[4];

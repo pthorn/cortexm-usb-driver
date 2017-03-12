@@ -14,6 +14,10 @@ void StandardRequests::on_set_configuration(uint8_t configuration)
 
 SetupResult StandardRequests::handle_ctrl_setup_stage()
 {
+    //
+    // device
+    //
+
     // get descriptor
     if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_DESCRIPTOR
@@ -31,6 +35,20 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         return SetupResult::NO_DATA_STAGE;
     }
 
+    // get configuration
+    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
+        get_setup_pkt().bRequest == GET_CONFIGURATION
+    ) {
+        print("get configuration\n");
+
+        static unsigned char data[] = {};
+        data[0] = device->get_configuration();
+        get_ep0().init_transfer(data, sizeof(data));
+        device->start_in_transfer(&get_ep0());
+
+        return SetupResult::DATA_STAGE;
+    }
+
     // set configuration
     // TODO support multiple configurations?
     if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_OUT) &&
@@ -45,14 +63,6 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         return SetupResult::STALL;
     }
 
-    // set interface
-    if(get_setup_pkt().bmRequestType == (RECIPIENT_INTERFACE | ENDPOINT_OUT) &&
-       get_setup_pkt().bRequest == SET_INTERFACE
-    ) {
-        print("set interface\n");
-        return SetupResult::NO_DATA_STAGE;
-    }
-
     // get device status
     // TODO bit 0 = self-powered, bit 1 = remote wkup enabled
     if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
@@ -65,6 +75,18 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         device->start_in_transfer(&get_ep0());
 
         return SetupResult::DATA_STAGE;
+    }
+
+    //
+    // interface
+    //
+
+    // set interface
+    if(get_setup_pkt().bmRequestType == (RECIPIENT_INTERFACE | ENDPOINT_OUT) &&
+       get_setup_pkt().bRequest == SET_INTERFACE
+    ) {
+        print("set interface\n");
+        return SetupResult::NO_DATA_STAGE;
     }
 
     print("unknown\n");

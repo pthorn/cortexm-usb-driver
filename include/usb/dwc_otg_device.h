@@ -70,7 +70,6 @@ private:
     uint8_t /*const*/ max_ep_n;
 
     State state;
-    uint8_t current_configuration;
     uint32_t fifo_end;
 };
 
