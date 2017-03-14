@@ -6,8 +6,8 @@
 #include "usb/defs.h"
 #include "usb/endpoint.h"
 #include "usb/control_endpoint.h"
-#include "print.h"
-//#include "gpio.h" TODO
+#include "debug.h"
+
 
 // TODO try putting CORE_BASE into a template arg?
 #define CORE_BASE USB_OTG_FS_PERIPH_BASE
@@ -124,7 +124,7 @@ void DWC_OTG_Device::start_in_transfer(Endpoint* ep)
     uint32_t const chunk_size = std::min(
         ep->get_remaining(), (size_t)ep->get_tx_fifo_size());
 
-    print("start_IN_transfer(): ep %s, bytes %s, npkt %s, first chunk %s\n",
+    d_info("start_IN_transfer(): ep %s, bytes %s, npkt %s, first chunk %s\n",
           ep->get_number(), ep->get_remaining(), n_packets, chunk_size);
 
     // program packet count and transfer size in bytes
@@ -147,7 +147,7 @@ void DWC_OTG_Device::start_in_transfer(Endpoint* ep)
     // TODO race condition?
     if (ep->get_remaining() > 0) {
         USB_DEV->DIEPEMPMSK |= 1 << ep->get_number();
-        print("start_IN_transfer(): en intr, rem %s\n", ep->get_remaining());
+        d_verbose("start_IN_transfer(): en intr, rem %s\n", ep->get_remaining());
     }
 }
 
@@ -173,6 +173,8 @@ void DWC_OTG_Device::start_out_transfer(Endpoint* ep)
 
 void DWC_OTG_Device::transmit_zlp(Endpoint *ep)
 {
+    d_info("transmit_zlp(%s)\n", ep->get_number());
+
     // packet count: 1, transfer size: 0 bytes
     USB_INEP(ep->get_number())->DIEPTSIZ =
         (1 << USB_OTG_DIEPTSIZ_PKTCNT_Pos) |
@@ -197,7 +199,7 @@ void DWC_OTG_Device::stall(uint8_t ep)
 
 void DWC_OTG_Device::ep0_receive_zlp()
 {
-    print("ep0_receive_zlp()\n");
+    d_info("ep0_receive_zlp()\n");
 
     USB_OUTEP(0)->DOEPTSIZ =
         (0 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // no SETUP packets
@@ -214,7 +216,7 @@ void DWC_OTG_Device::ep0_receive_zlp()
 
 void DWC_OTG_Device::ep0_init_ctrl_transfer()
 {
-    print("ep0_receive_zlp()\n");
+    d_info("ep0_init_ctrl_transfer()\n");
 
     USB_OUTEP(0)->DOEPTSIZ =
         (3 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // rx 3 SETUP packets
@@ -266,7 +268,7 @@ void DWC_OTG_Device::init_nvic()
 
 void DWC_OTG_Device::init_usb()
 {
-    print("init_usb()\n");
+    d_info("init_usb()\n");
 
     // select PHY
     // (always 1 for FS)
@@ -322,6 +324,7 @@ void DWC_OTG_Device::init_usb()
 
     // obtain max endpoint number
     max_ep_n = (*GHWCFG2 >> 10) & 0xf;
+    d_info("GHWCFG2: %#10x, GHWCFG3: %#10x, max_ep_n: %d\n", *GHWCFG2, *GHWCFG3, max_ep_n);
 }
 
 
@@ -449,7 +452,7 @@ void DWC_OTG_Device::init_in_endpoint(Endpoint* ep)
     USB_DEV->DAINTMSK |=
         (1 << (ep->get_number() + USB_OTG_DAINTMSK_IEPM_Pos));
 
-    print("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
+    d_info("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
         ep->get_number(),
         static_cast<uint32_t>(ep->get_type()),
         static_cast<uint32_t>(ep->get_inout()),
@@ -474,7 +477,7 @@ void DWC_OTG_Device::init_out_endpoint(Endpoint* ep)
     USB_DEV->DAINTMSK |=
         (1 << (ep->get_number() + USB_OTG_DAINTMSK_OEPM_Pos));
 
-    print("init_out_endpoint(): ep %s\n", ep->get_number());
+    d_info("init_out_endpoint(): ep %s\n", ep->get_number());
 }
 
 
@@ -482,39 +485,39 @@ void DWC_OTG_Device::isr()
 {
     uint32_t gintsts = USB_CORE->GINTSTS;
 
-//    print("\n isr() gintsts=%#10x gintmsk=%#10x masked=%#10x\n",
+//    d_info("\n isr() gintsts=%#10x gintmsk=%#10x masked=%#10x\n",
 //          gintsts, USB_CORE->GINTMSK, gintsts & USB_CORE->GINTMSK);
 
-    print("\nisr() masked=%#10x - ", gintsts & USB_CORE->GINTMSK);
+    d_info("\nisr() masked=%#10x - ", gintsts & USB_CORE->GINTMSK);
 
     if ((gintsts & USB_CORE->GINTMSK) == 0) {
-        print("???\n");
+        d_info("???\n");
         return;
     }
 
     // must be handled before RXFLVL because the RXFLVL handler
     // affects generation of OUT EP interrupts
     if (gintsts & USB_OTG_GINTSTS_OEPINT) {
-        print("OEPINT\n");
+        d_info("OEPINT\n");
         isr_out_ep_interrupt();
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_IEPINT) {
-        print("IEPINT\n");
+        d_info("IEPINT\n");
         isr_in_ep_interrupt();
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_RXFLVL) {
-        print("RXFLVL\n");
+        d_info("RXFLVL\n");
         isr_read_rxfifo();
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_USBRST) {
-        print("USBRST\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBRST;  // rc_w1
+        d_info("USBRST\n");
 
         USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
         isr_usb_reset();
@@ -522,7 +525,7 @@ void DWC_OTG_Device::isr()
     }
 
     if (gintsts & USB_OTG_GINTSTS_ENUMDNE) {
-        print("ENUMDNE\n");
+        d_info("ENUMDNE\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_ENUMDNE;  // rc_w1
         isr_speed_complete();
         return;
@@ -533,7 +536,7 @@ void DWC_OTG_Device::isr()
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBSUSP;  // rc_w1
 
         if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
-            print("USBSUSP\n");
+            d_info("USBSUSP\n");
             USB_CORE->GINTMSK &= ~USB_OTG_GINTMSK_USBSUSPM;  // disable suspend interrupt
             CALL_HANDLERS(on_suspend);
         }
@@ -542,8 +545,8 @@ void DWC_OTG_Device::isr()
     }
 
     if (gintsts & USB_OTG_GINTSTS_WKUINT) {
-        print("WKUINT\n");
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_WKUINT;  // rc_w1
+        d_info("WKUINT\n");
 
         USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
         CALL_HANDLERS(on_resume);
@@ -551,7 +554,7 @@ void DWC_OTG_Device::isr()
     }
 
     if (gintsts & USB_OTG_GINTSTS_SRQINT) {
-        print("SRQINT\n");  // cable connect
+        d_info("SRQINT\n");  // cable connect
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
         CALL_HANDLERS(on_connect);
         return;
@@ -562,7 +565,7 @@ void DWC_OTG_Device::isr()
         USB_CORE->GOTGINT = 0xFFFFFFFF;
 
         if (gotgint & USB_OTG_GOTGINT_SEDET) {
-            print("SEDET\n");  // session end (cable disconnect)
+            d_info("SEDET\n");  // session end (cable disconnect)
             CALL_HANDLERS(on_disconnect);
         }
 
@@ -570,11 +573,11 @@ void DWC_OTG_Device::isr()
     }
 
     if (gintsts & USB_OTG_GINTSTS_MMIS) {
-        print("!!MMIS!! halt\n");
+        d_critical("!!MMIS!! halt\n");
         while (1) ;;
     }
 
-    print("unhandled\n");
+    d_critical("unhandled\n");
     while (1) ;;
 }
 
@@ -622,6 +625,11 @@ void DWC_OTG_Device::isr_speed_complete()
     init_ep0();
 
     CALL_HANDLERS(on_reset);
+
+    //d_info("DCTL %#10x DSTS %#10x speed %s\n", USB_DEV->DCTL, USB_DEV->DSTS, speed);
+    //d_info("DOEPCTL0 %#10x\n", USB_OUTEP(0)->DOEPCTL);
+
+    //d_info("GOTGCTL %#10x GOTGINT %#10x\n", USB_CORE->GOTGCTL, USB_CORE->GOTGINT);
 }
 
 
@@ -654,16 +662,14 @@ void DWC_OTG_Device::isr_read_rxfifo()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP %s is null\n", ep_n);
+        d_critical("!!! EP %s is null\n", ep_n);
         while (true) ;;
     }
 
-    print("isr_read_rxfifo() pktsts=%s ep=%s len=%s\n",
+    d_info("isr_read_rxfifo() pktsts=%s ep=%s len=%s\n",
         pktsts_names[static_cast<uint32_t>(packet_status)], ep_n, len);
 
     if (packet_status == PacketStatus::SetupPacket) {
-        // TODO assert len == 8 for setup packets?
-
         uint8_t const stupcnt =
             (USB_OUTEP(0)->DOEPTSIZ >> USB_OTG_DOEPTSIZ_STUPCNT_Pos) & 3;
 
@@ -706,18 +712,18 @@ void DWC_OTG_Device::isr_out_ep_interrupt()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP %s is null, halt\n", ep_n);
+        d_critical("!!! EP %s is null, halt\n", ep_n);
         while (true) ;;
     }
 
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_STUP) {
-        print("OUT %s STUP\n", ep_n);
+        d_info("OUT %s STUP\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_STUP; // clear interrupt
         endpoint_0.on_setup_stage();
     }
 
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_XFRC) {
-        print("OUT %s XFRC\n", ep_n);
+        d_info("OUT %s XFRC\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_XFRC; // clear interrupt
         // TODO docs say read DOEPTSIZx to determine size of payload,
         // it could be less than expected
@@ -744,7 +750,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
     auto ep = endpoints[ep_n];
     if (ep == nullptr) {
-        print("!!! EP %s is null, halt\n", ep_n);
+        d_critical("!!! EP %s is null, halt\n", ep_n);
         while (true) ;;
     }
 
@@ -753,7 +759,7 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
         (USB_DEV->DIEPEMPMSK & (1 << ep_n))
     ) {
         uint16_t const avail_words = USB_INEP(ep_n)->DTXFSTS;
-        print("IN %s TXFE avail %s\n", ep_n, avail_words * 4); //, DIEPTSIZ %#10x USB_INEP(ep_n)->DIEPTSIZ);
+        d_info("IN %s TXFE avail %s\n", ep_n, avail_words * 4); //, DIEPTSIZ %#10x USB_INEP(ep_n)->DIEPTSIZ);
 
         if (ep->get_remaining() > 0) {
             uint16_t const chunk_size = std::min(
@@ -766,24 +772,24 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
 
             ep->on_transferred(chunk_size);
 
-            print("  TXFE: pushed %s, rem %s\n", chunk_size, ep->get_remaining());
+            d_verbose("  TXFE: pushed %s, rem %s\n", chunk_size, ep->get_remaining());
         }
 
         if (ep->get_remaining() == 0) {
             // disable TXFE interrupt for this EP
             USB_DEV->DIEPEMPMSK &= ~(1 << ep_n);
-            print("  dis int\n");
+            d_verbose("  dis int\n");
         }
     }
 
     // transfer completed
     if (USB_INEP(ep_n)->DIEPINT & USB_OTG_DIEPINT_XFRC) {
-        print("IN %s XFRC\n", ep_n);
+        d_info("IN %s XFRC\n", ep_n);
         USB_INEP(ep_n)->DIEPINT = USB_OTG_DIEPINT_XFRC;
         ep->on_in_transfer_complete();
     }
 
-//    print("isr_in_ep_interrupt(): unknown, ep=%s DIEPINT=%#10x\n",
+//    d_info("isr_in_ep_interrupt(): unknown, ep=%s DIEPINT=%#10x\n",
 //        ep, USB_INEP(ep)->DIEPINT);
 //    while (true) ;;
 }
