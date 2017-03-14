@@ -602,6 +602,8 @@ void DWC_OTG_Device::isr_usb_reset()
     otg.dev_reg.DOEPMSK = (1 << 3) | 1;       STUPM and XFRCM
     otg.dev_reg.DIEPEMPMSK = (1 << 3) | 1;    EP0 and EP3?
 */
+
+    state = State::INITIALIZED;
 }
 
 
@@ -613,6 +615,8 @@ void DWC_OTG_Device::isr_speed_complete()
     // 0 = high speed, 3 = full speed
     uint8_t speed = (USB_DEV->DSTS & USB_OTG_DSTS_ENUMSPD) >> USB_OTG_DSTS_ENUMSPD_Pos;
 
+    state = State::SPEED;
+    current_configuration = 0;
     fifo_end = 0;
 
     init_ep0();

@@ -15,10 +15,10 @@ enum class Core {
 enum class State {
     NONE,
     INITIALIZED,
-    SUSPENDED,
-    WAKEUP,
+    SPEED,
     ADDRESS,
-    CONFIGURED
+    CONFIGURED,
+    SUSPENDED
 };
 
 
