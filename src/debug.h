@@ -45,4 +45,8 @@
 #   define d_critical(...)
 #endif
 
+void d_assert_impl(char const* file, int line, char const* func, char const* msg)
+     __attribute__((noreturn));
+#define d_assert(msg)  d_assert_impl(__FILE__, __LINE__, __PRETTY_FUNCTION__, msg)
+
 #endif // DEBUG_H
