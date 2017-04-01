@@ -3,9 +3,8 @@
 
 #include "defs.h"
 
-class Device;
 
-
+template<typename Device>
 class EPDispatcher {
 public:
     EPDispatcher(Device* device):
@@ -20,8 +19,9 @@ private:
 };
 
 
+template<typename Device>
 class CtrlEPDispatcher {
-    friend class Device;
+    friend Device;
 
 public:
     enum CtrlState {
@@ -50,5 +50,6 @@ private:
     CtrlState state;
 };
 
+#include "dispatchers.impl.h"
 
 #endif // DISPATCHERS_H

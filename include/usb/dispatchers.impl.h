@@ -1,10 +1,14 @@
+#ifndef DISPATCHER_IMPL_H
+#define DISPATCHER_IMPL_H
+
 #include "dispatchers.h"
 #include "device.h"
 #include "handler.h"
 #include "debug.h"
 
 
-void EPDispatcher::on_in_transfer_complete(uint8_t ep_n) {
+template <typename Device>
+void EPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n) {
     auto transfer = device.in_transfers[ep_n];
     if (transfer == nullptr) {
         d_assert("transfer == nullptr");
@@ -15,7 +19,8 @@ void EPDispatcher::on_in_transfer_complete(uint8_t ep_n) {
 }
 
 
-void EPDispatcher::on_out_transfer_complete(uint8_t ep_n) {
+template <typename Device>
+void EPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n) {
     auto transfer = device.out_transfers[ep_n];
     if (transfer == nullptr) {
         d_assert("transfer == nullptr");
@@ -26,7 +31,8 @@ void EPDispatcher::on_out_transfer_complete(uint8_t ep_n) {
 }
 
 
-void CtrlEPDispatcher::on_setup_stage(uint8_t ep_n)
+template <typename Device>
+void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 {
     print("CtrlEPDispatcher::on_setup_stage() bmRT=%#x bR=%#x wI=%s wV=%s wL=%s\n",
         setup_packet.bmRequestType, setup_packet.bRequest,
@@ -39,7 +45,7 @@ void CtrlEPDispatcher::on_setup_stage(uint8_t ep_n)
         //abort();
     }
     device.in_transfers[ep_n] = nullptr;
-    device.in_transfers[ep_n] = nullptr;
+    device.out_transfers[ep_n] = nullptr;
 
     // find a handler that recognizes the request
 
@@ -97,7 +103,8 @@ void CtrlEPDispatcher::on_setup_stage(uint8_t ep_n)
 
 
 // TODO do we actually need separate callbacks for IN and OUT?
-void CtrlEPDispatcher::on_in_transfer_complete(uint8_t ep_n)
+template <typename Device>
+void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
 {
     auto transfer = device.in_transfers[ep_n];
     if (transfer == nullptr) {
@@ -131,7 +138,8 @@ void CtrlEPDispatcher::on_in_transfer_complete(uint8_t ep_n)
 
 
 // TODO a lot of duplicated code
-void CtrlEPDispatcher::on_out_transfer_complete(uint8_t ep_n)
+template <typename Device>
+void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
 {
     auto transfer = device.out_transfers[ep_n];
     if (transfer == nullptr) {
@@ -164,8 +172,12 @@ void CtrlEPDispatcher::on_out_transfer_complete(uint8_t ep_n)
 }
 
 
-void CtrlEPDispatcher::reinit()
+template <typename Device>
+void CtrlEPDispatcher<Device>::reinit()
 {
     device.ep0_init_ctrl_transfer();
     state = CtrlState::START;
 }
+
+
+#endif // DISPATCHER_IMPL_H
