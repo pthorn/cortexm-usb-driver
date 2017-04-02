@@ -2,6 +2,7 @@
 #define DESCRIPTORS_H
 
 #include <cstdint>
+#include <cstddef>
 
 
 struct DeviceDescriptor {
@@ -66,5 +67,15 @@ struct StringLangIDDescriptor {
     uint8_t bDescriptorType;
     uint16_t languages[1];
 } __attribute__((packed));
+
+
+struct Descriptors {
+    DeviceDescriptor device;
+    ConfigDescriptor config;
+    StringLangIDDescriptor lang_id;
+    unsigned char const** string;
+    size_t string_len;
+    unsigned char* msft_string;
+};
 
 #endif // DESCRIPTORS_H
