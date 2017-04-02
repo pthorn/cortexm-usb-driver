@@ -2,8 +2,10 @@
 #define HANDLER_H
 
 #include "defs.h"
-#include "transfers.h"
-#include "device.h"
+#include "idevice.h"
+
+class RxTransfer;
+class TxTransfer;
 
 
 class Handler
@@ -12,7 +14,7 @@ protected:
     Handler() = default;
 
 public:
-    void on_attached(Device* device) {
+    void on_attached(IDevice* device) {
         this->device = device;
     }
 
@@ -43,14 +45,12 @@ protected:
         return device->submit(ep_n, transfer);
     }
 
-    // TODO
     void stall() {
-
+        // TODO
     }
 
 protected:
-    Device* device;
+    IDevice* device;
 };
-
 
 #endif // HANDLER_H
