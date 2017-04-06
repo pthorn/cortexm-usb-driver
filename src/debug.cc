@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "usb/debug.h"
 
 
 void d_assert_impl(char const* file, int line, char const* func, char const* msg)

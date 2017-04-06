@@ -1,21 +1,19 @@
 #include <algorithm>
 
-#include "usb/standard_requests.h"
-#include "usb/dwc_otg_device.h"
-#include "usb/descriptors.h"
+#include "standard_requests.h"
+#include "descriptors.h"
+#include "transfers.h"
 #include "print.h"
 
 
-void StandardRequests::on_set_configuration(uint8_t configuration)
-{
-
-}
+//BufferRxTransfer<3, MockHandler> ctrl_rx_transfer;
+static BufferTxTransfer<StandardRequests> ctrl_tx_transfer;
 
 
-SetupResult StandardRequests::handle_ctrl_setup_stage()
+SetupResult StandardRequests::on_ctrl_setup_stage()
 {
     //
-    // device
+    // device requests
     //
 
     // get descriptor
@@ -43,8 +41,11 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
 
         static unsigned char data[] = {};
         data[0] = device->get_configuration();
-        get_ep0().init_transfer(data, sizeof(data));
-        device->start_in_transfer(&get_ep0());
+
+        ctrl_tx_transfer.init(data, sizeof(data), this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
+            //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
+        });
+        submit(0, ctrl_tx_transfer);
 
         return SetupResult::DATA_STAGE;
     }
@@ -71,8 +72,14 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
         print("get status\n");
 
         static unsigned char const data[] = {0x00, 0x00};
-        get_ep0().init_transfer(data, sizeof(data));
-        device->start_in_transfer(&get_ep0());
+
+//        get_ep0().init_transfer(data, sizeof(data));
+//        device->start_in_transfer(&get_ep0());
+
+        ctrl_tx_transfer.init(data, sizeof(data), this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
+            //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
+        });
+        submit(0, ctrl_tx_transfer);
 
         return SetupResult::DATA_STAGE;
     }
@@ -94,24 +101,6 @@ SetupResult StandardRequests::handle_ctrl_setup_stage()
 }
 
 
-DataResult StandardRequests::handle_ctrl_in_data_stage()
-{
-    return DataResult::DONE;
-}
-
-
-DataResult StandardRequests::handle_ctrl_out_data_stage()
-{
-    return DataResult::DONE;
-}
-
-
-void StandardRequests::handle_ctrl_status_stage()
-{
-
-}
-
-
 SetupResult StandardRequests::send_descriptor()
 {
     uint8_t const descriptor_type = get_setup_pkt().wValue >> 8;
@@ -127,32 +116,31 @@ SetupResult StandardRequests::send_descriptor()
     switch (descriptor_type) {
     case DESCRIPTOR_DEVICE:
         print("device\n");
-        descriptor_buf = reinterpret_cast<unsigned char const*>(&device_descriptor);
-        descriptor_size = device_descriptor.bLength;  //sizeof(device_descriptor);
+        descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->device);
+        descriptor_size = descriptors->device.bLength;  //sizeof(descriptors->device);
         break;
 
     case DESCRIPTOR_CONFIGURATION:
         print("config\n");
-        descriptor_buf = reinterpret_cast<unsigned char const*>(&config_descriptor);
-        descriptor_size = config_descriptor.wTotalLength;  //sizeof(config_descriptor);
+        descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->config);
+        descriptor_size = descriptors->config.wTotalLength;  //sizeof(descriptors->config);
         break;
 
     case DESCRIPTOR_STRING:
         print("string\n");
         if (descriptor_index == 0) {
-            descriptor_buf = reinterpret_cast<unsigned char const*>(&lang_id_descriptor);
-            descriptor_size = lang_id_descriptor.bLength;
-        } else if (descriptor_index == 0xEE && msft_string_descriptor != nullptr) {
-            descriptor_buf = msft_string_descriptor;
-            descriptor_size = msft_string_descriptor[0];
+            descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->lang_id);
+            descriptor_size = descriptors->lang_id.bLength;
+        } else if (descriptor_index == 0xEE && descriptors->msft_string != nullptr) {
+            descriptor_buf = descriptors->msft_string;
+            descriptor_size = descriptors->msft_string[0];
         } else {
-            //if (descriptor_index > sizeof(string_descriptors) / sizeof(string_descriptors[0])) {
-            if (descriptor_index > string_descriptors_len) {
+            if (descriptor_index > descriptors->string_len) {
                 print("index too large!\n");
                 return SetupResult::STALL;
             }
 
-            descriptor_buf = string_descriptors[descriptor_index - 1];
+            descriptor_buf = descriptors->string[descriptor_index - 1];
             descriptor_size = descriptor_buf[0];
         }
         break;
@@ -165,18 +153,10 @@ SetupResult StandardRequests::send_descriptor()
     // host can request more or fewer bytes than the actual descriptor size
     uint16_t length = std::min(descriptor_size, get_setup_pkt().wLength);
 
-    get_ep0().init_transfer(descriptor_buf, length);
-    device->start_in_transfer(&get_ep0());
+    ctrl_tx_transfer.init(descriptor_buf, length, this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
+        //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
+    });
+    submit(0, ctrl_tx_transfer);
 
     return SetupResult::DATA_STAGE;
-}
-
-
-void StandardRequests::handle_in_transfer(Endpoint &ep)
-{
-}
-
-
-void StandardRequests::handle_out_transfer(Endpoint &ep)
-{
 }

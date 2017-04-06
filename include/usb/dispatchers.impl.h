@@ -41,8 +41,7 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 
     // TODO possible irl
     if (device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr) {
-        print("ASSERT: device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr, CtrlEPDispatcher::on_setup_stage()\n");
-        //abort();
+        print("device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr, CtrlEPDispatcher::on_setup_stage()\n");
     }
     device.in_transfers[ep_n] = nullptr;
     device.out_transfers[ep_n] = nullptr;
@@ -74,12 +73,10 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
     InOut const in_out = setup_packet.bmRequestType & ENDPOINT_IN ? InOut::In : InOut::Out;
 
     if (has_data_stage && in_out == InOut::In && device.in_transfers[ep_n] == nullptr) {
-        print("ASSERT: hadler did not submit a data stage transfer 1\n");
-        abort();
+        d_assert("hadler did not submit a data stage transfer 1\n");
     }
     if (has_data_stage && in_out == InOut::Out && device.out_transfers[ep_n] == nullptr) {
-        print("ASSERT: hadler did not submit a data stage transfer 2\n");
-        abort();
+        d_assert("hadler did not submit a data stage transfer 2\n");
     }
 
     if (has_data_stage) {
@@ -108,8 +105,7 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
 {
     auto transfer = device.in_transfers[ep_n];
     if (transfer == nullptr) {
-        print("CtrlEPDispatcher::on_out_transfer_complete(): current_handler == nullptr!\n");
-        abort();
+        d_assert("CtrlEPDispatcher::on_out_transfer_complete(): current_handler == nullptr!\n");
     }
 
     device.in_transfers[ep_n] = nullptr;
@@ -143,8 +139,7 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
 {
     auto transfer = device.out_transfers[ep_n];
     if (transfer == nullptr) {
-        print("CtrlEPDispatcher::on_out_transfer_complete(): current_handler == nullptr!\n");
-        abort();
+        d_assert("CtrlEPDispatcher::on_out_transfer_complete(): current_handler == nullptr!\n");
     }
 
     device.out_transfers[ep_n] = nullptr;

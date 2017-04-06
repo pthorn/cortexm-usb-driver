@@ -1,54 +1,49 @@
 #ifndef DEVICE_H
 #define DEVICE_H
 
-#include <cstdint>
+#include "defs.h"
+#include "descriptors.h"
+#include "idevice.h"
+#include "dispatchers.h"
+#include "debug.h"
 
-#define NO_OF_ENDPOINTS 6
+class RxTransfer;
+class TxTransfer;
+class Handler;
+class EndpointConfig;
 
 
-
-class Endpoint;
-class ControlEndpoint;
-class USBClass;
-
-
-class Device
+template<size_t NHandlers, size_t NEndpoints>
+class Device: public IDevice
 {
-public:
-    Device(ControlEndpoint& endpoint_0);
-
-    void add_handler(USBClass* handler);
-
-    void add_ep(Endpoint& ep);  // TODO add in constructor?
-
-    Endpoint& get_ep(uint8_t n) {
-        return *endpoints[n];
-    }
-
-    // class API
-
-    // for use by StandardRequests
-    virtual void set_address(uint16_t address) = 0;
-    bool get_configuration() { return current_configuration; }
-    virtual bool set_configuration(uint8_t configuration) = 0;
-    virtual void transmit_zlp(Endpoint *ep) = 0;
-    virtual void ep0_receive_zlp() = 0;
-    virtual void ep0_init_ctrl_transfer() = 0;
-
-    // for use by custom handlers
-    virtual void start_in_transfer(Endpoint* ep) = 0;  // TODO &
-    virtual void start_out_transfer(Endpoint* ep) = 0;
-    virtual void stall(uint8_t ep) = 0;
+    friend class EPDispatcher<Device<NHandlers, NEndpoints>>;
+    friend class CtrlEPDispatcher<Device<NHandlers, NEndpoints>>;
 
 public:
-    USBClass* handlers[4];  // TODO! endpoint classes use this
-    ControlEndpoint& endpoint_0;  // TODO! ControlEndpoint uses this
+    Device(EndpointConfig const* endpoint_config, Descriptors const& descriptors);
+
+    void add_handler(Handler* handler);
+
+    uint8_t get_configuration() override;
+    bool set_configuration(uint8_t configuration) override;
+
+    EndpointConfig const& get_ep_config(uint8_t ep_n, InOut in_out);
+    SetupPacket const& get_setup_pkt() override;
 
 protected:
+    void dispatch_in_transfer_complete(uint8_t ep_n);
+    void dispatch_out_transfer_complete(uint8_t ep_n);
+
+    CtrlEPDispatcher<Device<NHandlers, NEndpoints>> ctrl_ep_dispatcher;  // dispatch control xfers to handlers
+    EPDispatcher<Device<NHandlers, NEndpoints>> ep_dispatcher;           // dispatch non-ctrl xfers to handlers
+    EndpointConfig const* endpoint_config;   // config data, can be put into flash
+    Handler* handlers[NHandlers];            // pointers to handler objects
+    TxTransfer* in_transfers[NEndpoints];     // pointers to IN transfers
+    RxTransfer* out_transfers[NEndpoints];    // pointers to OUT transfers
+    State state;
     uint8_t current_configuration;
-    //ControlEndpoint& endpoint_0;
-    Endpoint* endpoints[NO_OF_ENDPOINTS];
-    //USBClass* handlers[4];
 };
+
+#include "device.impl.h"
 
 #endif // DEVICE_H

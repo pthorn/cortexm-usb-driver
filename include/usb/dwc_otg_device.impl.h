@@ -1,17 +1,14 @@
+#ifndef DWC_OTG_DEVICE_IMPL_H
+#define DWC_OTG_DEVICE_IMPL_H
+
 #include <algorithm>
 
 #include "dwc_otg_header.h"
-#include "usb/dwc_otg_device.h"
-#include "device_pvt.h"
-#include "usb/defs.h"
-#include "usb/endpoint.h"
-#include "usb/control_endpoint.h"
+#include "transfers.h"
 #include "debug.h"
 
 
-// TODO try putting CORE_BASE into a template arg?
-#define CORE_BASE USB_OTG_FS_PERIPH_BASE
-//#define CORE_BASE base_addr
+#define CORE_BASE CoreAddr
 #define USB_CORE ((USB_OTG_GlobalTypeDef *)CORE_BASE)
 //static USB_OTG_DeviceTypeDef * const USB_DEV = (USB_OTG_DeviceTypeDef *)((uint32_t)CORE_BASE + USB_OTG_DEVICE_BASE);
 #define GHWCFG2 ((volatile uint32_t *)(CORE_BASE + 0x48))
@@ -30,40 +27,31 @@ static T div_round_up(T a, T b)
 }
 
 
-static void read_packet(unsigned char* dest_buf, uint16_t n_bytes)
-{
-    uint32_t fifo_tmp;
-    unsigned char const *fifo_buf = reinterpret_cast<unsigned char const*>(&fifo_tmp);
-
-    for (int i = 0; i < n_bytes; ++i) {
-        if (i % 4 == 0) {
-            fifo_tmp = *USB_FIFO(0);
-        }
-
-        dest_buf[i] = fifo_buf[i % 4];
-    }
-}
-
-
-// TODO params: core (FS or HS), timing, Vbus sensing
-DWC_OTG_Device::DWC_OTG_Device(
-    Core core,
-    ControlEndpoint& endpoint_0,
-    uint16_t rxfifo_size//,
+// TODO params: core (FS or HS), timing, Vbus sensing, interrupt priority
+// TODO (not incl. EP0): F4 FS: 3, HS: 5; F7 FS: 5, HS: 8
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::DWC_OTG_Device(
+    EndpointConfig const* endpoint_config,
+    DWCEndpointConfig const* dwc_endpoint_config,
+    Descriptors const& descriptors,
+    uint16_t rxfifo_size
     //bool vbus_sensing
 ):
-    Device(endpoint_0),
+    Device<NHandlers, NEndpoints>(endpoint_config, descriptors),
+    dwc_endpoint_config(dwc_endpoint_config),
     rxfifo_size(rxfifo_size),
-    base_addr(core == Core::FS ? USB_OTG_FS_PERIPH_BASE : USB_OTG_HS_PERIPH_BASE),
-    total_fifo_size(core == Core::FS ? USB_OTG_FS_TOTAL_FIFO_SIZE : USB_OTG_HS_TOTAL_FIFO_SIZE),
+    // TODO F7 total_fifo_size(core == Core::FS ? USB_OTG_FS_TOTAL_FIFO_SIZE : USB_OTG_HS_TOTAL_FIFO_SIZE),
+    total_fifo_size(1280),
     max_ep_n(0),
     fifo_end(0)
 {
-    //add_ep(endpoint_0);
+    static_assert(CoreAddr == USB_OTG_FS_PERIPH_BASE || CoreAddr == USB_OTG_HS_PERIPH_BASE, "!");
+    // TODO static_assert() NEndpoints and NEndpoints too
 }
 
 
-void DWC_OTG_Device::init()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init()
 {
     init_clocks();
     init_gpio();
@@ -76,7 +64,8 @@ void DWC_OTG_Device::init()
 }
 
 
-void DWC_OTG_Device::set_address(uint16_t address)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::set_address(uint16_t address)
 {
     uint32_t dcfg = USB_DEV->DCFG;
     dcfg &= ~(0x7F << USB_OTG_DCFG_DAD_Pos);
@@ -87,101 +76,88 @@ void DWC_OTG_Device::set_address(uint16_t address)
 }
 
 
-bool DWC_OTG_Device::set_configuration(uint8_t configuration)
-{
-    if (current_configuration == configuration) {
-        return true;
-    }
-
-    if (configuration == 0) {
-        // TODO deinit EPs?
-        current_configuration = configuration;
-        state = State::ADDRESS;
-        return true;
-    } else if (configuration == 1) {
-        init_endpoints(configuration);  // TODO multiple configurations? windows doesnt't support that?
-
-        current_configuration = configuration;
-        state = State::CONFIGURED;
-
-        CALL_HANDLERS(on_set_configuration, configuration);
-        return true;
-    } else {
-        return false;
-    }
-}
-
-
-// to be called from InEndpoint only
 // ref: RM0090 rev. 13 page 1365, "IN data transfers"
-void DWC_OTG_Device::start_in_transfer(Endpoint* ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, TxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
 
+    in_transfers[ep_n] = &transfer;
+
     // TODO data types
     uint32_t const n_packets = div_round_up(
-        ep->get_remaining(), (size_t)ep->get_max_pkt_size());
+        transfer.get_remaining(),
+        (size_t)get_ep_config(ep_n, InOut::In).max_pkt_size
+    );
     uint32_t const chunk_size = std::min(
-        ep->get_remaining(), (size_t)ep->get_tx_fifo_size());
+        transfer.get_remaining(),
+        (size_t)get_dwc_ep_config(ep_n).tx_fifo_size
+    );
 
     d_info("start_IN_transfer(): ep %s, bytes %s, npkt %s, first chunk %s\n",
-          ep->get_number(), ep->get_remaining(), n_packets, chunk_size);
+          ep_n, transfer.get_remaining(), n_packets, chunk_size);
 
     // program packet count and transfer size in bytes
-    USB_INEP(ep->get_number())->DIEPTSIZ =
+    USB_INEP(ep_n)->DIEPTSIZ =
         (n_packets << USB_OTG_DIEPTSIZ_PKTCNT_Pos) |
-        ep->get_remaining();
+        transfer.get_remaining();
 
     // enable endpoint
-    USB_INEP(ep->get_number())->DIEPCTL |=
+    USB_INEP(ep_n)->DIEPCTL |=
         USB_OTG_DIEPCTL_EPENA | // activate transfer
         USB_OTG_DIEPCTL_CNAK;   // clear NAK bit
 
     // TODO what about aliasing?
     for (uint32_t word_idx = 0; word_idx < (chunk_size + 3) / 4; ++word_idx) {
-        *USB_FIFO(ep->get_number()) = *((uint32_t *)&ep->get_data_ptr()[word_idx * 4]);
+        *USB_FIFO(ep_n) = *((uint32_t *)&transfer.get_data_ptr()[word_idx * 4]);
     }
 
-    ep->on_transferred(chunk_size);
+    transfer.on_transferred(chunk_size);
 
     // TODO race condition?
-    if (ep->get_remaining() > 0) {
-        USB_DEV->DIEPEMPMSK |= 1 << ep->get_number();
-        d_verbose("start_IN_transfer(): en intr, rem %s\n", ep->get_remaining());
+    if (transfer.get_remaining() > 0) {
+        USB_DEV->DIEPEMPMSK |= 1 << ep_n;
+        d_verbose("start_IN_transfer(): en intr, rem %s\n", transfer.get_remaining());
     }
 }
 
 
-// to be called from OutEndpoint only
 // ref: RM0090 rev. 13 page 1356
-void DWC_OTG_Device::start_out_transfer(Endpoint* ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, RxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
     // interrupt is already enabled (RXFLVL)
 
-    uint32_t const n_packets = div_round_up(ep->get_remaining(), (size_t)ep->get_max_pkt_size());
+    out_transfers[ep_n] = &transfer;
 
-    USB_OUTEP(ep->get_number())->DOEPTSIZ =
+    uint32_t const n_packets = div_round_up(
+        transfer.get_remaining(),
+        (size_t)get_ep_config(ep_n, InOut::Out).max_pkt_size
+    );
+
+    USB_OUTEP(ep_n)->DOEPTSIZ =
         (n_packets << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |
-        ep->get_remaining();  // TODO must be extended to next word boundary!
+        transfer.get_remaining();  // TODO must be extended to next word boundary!
 
-    USB_OUTEP(ep->get_number())->DOEPCTL |=
+    USB_OUTEP(ep_n)->DOEPCTL |=
         USB_OTG_DOEPCTL_EPENA | // activate transfer
         USB_OTG_DOEPCTL_CNAK;   // clear NAK bit
 }
 
 
-void DWC_OTG_Device::transmit_zlp(Endpoint *ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::transmit_zlp(uint8_t ep_n)
 {
-    d_info("transmit_zlp(%s)\n", ep->get_number());
+    d_info("transmit_zlp(%s)\n", ep_n);
 
     // packet count: 1, transfer size: 0 bytes
-    USB_INEP(ep->get_number())->DIEPTSIZ =
+    USB_INEP(ep_n)->DIEPTSIZ =
         (1 << USB_OTG_DIEPTSIZ_PKTCNT_Pos) |
         0;  // size
 
     // enable endpoint
-    USB_INEP(ep->get_number())->DIEPCTL |=
+    USB_INEP(ep_n)->DIEPCTL |=
         USB_OTG_DIEPCTL_EPENA | // activate transfer
         USB_OTG_DIEPCTL_CNAK;   // clear NAK bit
 }
@@ -189,7 +165,8 @@ void DWC_OTG_Device::transmit_zlp(Endpoint *ep)
 
 // TODO support STALL for OUT EPs
 // TODO support unSTALL bulk/interrupt EPs
-void DWC_OTG_Device::stall(uint8_t ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::stall(uint8_t ep)
 {
     // control endpoints: the core clears STALL bit when a SETUP token is received
     // bulk and interrupt endpoints: core never clears this bit
@@ -197,7 +174,8 @@ void DWC_OTG_Device::stall(uint8_t ep)
 }
 
 
-void DWC_OTG_Device::ep0_receive_zlp()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_receive_zlp()
 {
     d_info("ep0_receive_zlp()\n");
 
@@ -206,7 +184,7 @@ void DWC_OTG_Device::ep0_receive_zlp()
         (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
         // TODO ep0 transfer size, currently = max pkt size
         // TODO zero?
-        endpoint_0.get_max_pkt_size();
+        get_ep_config(0, InOut::Out).max_pkt_size;
 
     USB_OUTEP(0)->DOEPCTL |=
         USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
@@ -214,7 +192,8 @@ void DWC_OTG_Device::ep0_receive_zlp()
 }
 
 
-void DWC_OTG_Device::ep0_init_ctrl_transfer()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_init_ctrl_transfer()
 {
     d_info("ep0_init_ctrl_transfer()\n");
 
@@ -223,7 +202,7 @@ void DWC_OTG_Device::ep0_init_ctrl_transfer()
         (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
         // TODO ep0 transfer size, currently = max pkt size
         // TODO depends on speed?
-        endpoint_0.get_max_pkt_size();         // note: must be extended to next word boundary
+        get_ep_config(0, InOut::Out).max_pkt_size; // note: must be extended to next word boundary
 
     USB_OUTEP(0)->DOEPCTL |=
         USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
@@ -235,14 +214,16 @@ void DWC_OTG_Device::ep0_init_ctrl_transfer()
 // private
 //
 
-void DWC_OTG_Device::init_clocks()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_clocks()
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
 }
 
 
-void DWC_OTG_Device::init_gpio()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_gpio()
 {
     // USB_FS F4 and F7 pins:
     //   PA9: USB_FS_VBUS (controlled by USB_OTG_GCCFG_NOVBUSSENS)
@@ -259,14 +240,16 @@ void DWC_OTG_Device::init_gpio()
 }
 
 
-void DWC_OTG_Device::init_nvic()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_nvic()
 {
     NVIC_SetPriority(OTG_FS_IRQn, 2);
     NVIC_EnableIRQ(OTG_FS_IRQn);
 }
 
 
-void DWC_OTG_Device::init_usb()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_usb()
 {
     d_info("init_usb()\n");
 
@@ -328,7 +311,8 @@ void DWC_OTG_Device::init_usb()
 }
 
 
-void DWC_OTG_Device::init_interrupts()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_interrupts()
 {
     // TODO reset any pending interrupta
     //USB_CORE->GINTSTS = 0xffffffff;  // TODO OR only necessary bits
@@ -361,7 +345,8 @@ void DWC_OTG_Device::init_interrupts()
 }
 
 
-void DWC_OTG_Device::init_ep0()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_ep0()
 {
     // allocate RxFIFO (for all endpoints)
     // value in words, min 16, max 256
@@ -370,9 +355,9 @@ void DWC_OTG_Device::init_ep0()
 
     // allocate txFIFO for EP0
     USB_CORE->DIEPTXF0_HNPTXFSIZ =
-        ((endpoint_0.get_tx_fifo_size() >> 2) << 16) |  // EP0 TxFIFO size, in 32-bit words
+        ((get_dwc_ep_config(0).tx_fifo_size >> 2) << 16) |  // EP0 TxFIFO size, in 32-bit words
         fifo_end;
-    fifo_end += endpoint_0.get_tx_fifo_size() >> 2;
+    fifo_end += get_dwc_ep_config(0).tx_fifo_size >> 2;
 
     // configure but do not activate IN
 
@@ -390,7 +375,7 @@ void DWC_OTG_Device::init_ep0()
         (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
         // TODO ep0 transfer size, currently = max pkt size
         // TODO depends on speed?
-        endpoint_0.get_max_pkt_size();         // note: must be extended to next word boundary
+        get_ep_config(0, InOut::Out).max_pkt_size;   // note: must be extended to next word boundary
 
     USB_OUTEP(0)->DOEPCTL =
         USB_OTG_DOEPCTL_USBAEP |              // EP0 is always active
@@ -405,25 +390,36 @@ void DWC_OTG_Device::init_ep0()
 }
 
 
-void DWC_OTG_Device::init_endpoints(uint8_t configuration)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_endpoints(uint8_t configuration)
 {
-    for (auto ep: endpoints) {
-        if (ep == nullptr || ep->get_number() == 0) {
+    for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
+        if (ep_conf->n > 15 ) {
+            break;
+        }
+
+        if (ep_conf->n == 0) {
             continue;
         }
 
-        if (ep->get_inout() == InOut::In) {
-            init_in_endpoint(ep);
+        if (ep_conf->in_out == InOut::In) {
+            init_in_endpoint(*ep_conf);
         } else {
-            init_out_endpoint(ep);
+            init_out_endpoint(*ep_conf);
         }
-
-        ep->on_initialized();
     }
 }
 
 
-void DWC_OTG_Device::init_in_endpoint(Endpoint* ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::deinit_endpoints()
+{
+    // TODO
+}
+
+
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_in_endpoint(EndpointConfig const& ep_conf)
 {
     // IN EP transmits data from device to host.
     // Has its own TxFIFO.
@@ -433,55 +429,57 @@ void DWC_OTG_Device::init_in_endpoint(Endpoint* ep)
     // TODO check for FIFO memory overflow
 
     // allocate TxFIFO
-    auto const tx_fifo_size_words = ep->get_tx_fifo_size() >> 2;
-    USB_CORE->DIEPTXF[ep->get_number() - 1] =
+    auto const tx_fifo_size_words = get_dwc_ep_config(ep_conf.n).tx_fifo_size >> 2;
+    USB_CORE->DIEPTXF[ep_conf.n - 1] =
         (tx_fifo_size_words << USB_OTG_DIEPTXF_INEPTXFD_Pos) |  // TxFIFO size, in 32-bit words
         fifo_end;
     fifo_end += tx_fifo_size_words;
 
-    USB_INEP(ep->get_number())->DIEPCTL =
+    USB_INEP(ep_conf.n)->DIEPCTL =
         USB_OTG_DIEPCTL_USBAEP |               // activate EP
-        (static_cast<uint32_t>(ep->get_type()) << USB_OTG_DIEPCTL_EPTYP_Pos) |
+        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DIEPCTL_EPTYP_Pos) |
         // use TxFIFO with the same number as the EP
-        (ep->get_number() << USB_OTG_DIEPCTL_TXFNUM_Pos) |
-        (ep->get_max_pkt_size() << USB_OTG_DIEPCTL_MPSIZ_Pos) |
+        (ep_conf.n << USB_OTG_DIEPCTL_TXFNUM_Pos) |
+        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
         USB_OTG_DIEPCTL_SD0PID_SEVNFRM |
         USB_OTG_DIEPCTL_SNAK;
 
     // enable EP-specific interrupt
     USB_DEV->DAINTMSK |=
-        (1 << (ep->get_number() + USB_OTG_DAINTMSK_IEPM_Pos));
+        (1 << (ep_conf.n + USB_OTG_DAINTMSK_IEPM_Pos));
 
     d_info("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
-        ep->get_number(),
-        static_cast<uint32_t>(ep->get_type()),
-        static_cast<uint32_t>(ep->get_inout()),
-        ep->get_max_pkt_size(),
-        ep->get_tx_fifo_size(),
+        ep_conf.n,
+        static_cast<uint32_t>(ep_conf.type),
+        static_cast<uint32_t>(ep_conf.in_out),
+        ep_conf.max_pkt_size,
+        get_dwc_ep_config(ep_conf.n).tx_fifo_size,
         fifo_end * 4);
 }
 
 
-void DWC_OTG_Device::init_out_endpoint(Endpoint* ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_out_endpoint(EndpointConfig const& ep_conf)
 {
     // TODO test transfers with EPENA=0!
 
     // TODO check EPType values against EPTYP
-    USB_OUTEP(ep->get_number())->DOEPCTL =
+    USB_OUTEP(ep_conf.n)->DOEPCTL =
         USB_OTG_DOEPCTL_USBAEP |              // activate EP
-        (static_cast<uint32_t>(ep->get_type()) << USB_OTG_DOEPCTL_EPTYP_Pos) |
-        (ep->get_max_pkt_size() << USB_OTG_DIEPCTL_MPSIZ_Pos) |
+        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DOEPCTL_EPTYP_Pos) |
+        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
         USB_OTG_DOEPCTL_CNAK;
 
     // enable EP-specific interrupt
     USB_DEV->DAINTMSK |=
-        (1 << (ep->get_number() + USB_OTG_DAINTMSK_OEPM_Pos));
+        (1 << (ep_conf.n + USB_OTG_DAINTMSK_OEPM_Pos));
 
-    d_info("init_out_endpoint(): ep %s\n", ep->get_number());
+    d_info("init_out_endpoint(): ep %s\n", ep_conf.n);
 }
 
 
-void DWC_OTG_Device::isr()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr()
 {
     uint32_t gintsts = USB_CORE->GINTSTS;
 
@@ -582,7 +580,8 @@ void DWC_OTG_Device::isr()
 }
 
 
-void DWC_OTG_Device::isr_usb_reset()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_usb_reset()
 {
     // this can be triggered by cable disconnect or with no cable attached!
 
@@ -591,26 +590,26 @@ void DWC_OTG_Device::isr_usb_reset()
 
     // USB device configuration
     USB_DEV->DCFG |=
-        USB_OTG_DCFG_DSPD;  // full speed
+        USB_OTG_DCFG_DSPD;  // force full speed
         // TODO NZLSOHSK?
 
-    // TODO call handler->handle_reset()? or in isr_speed_complete()?
+    // set NAK on all OUT EPs
+//    for (uint8_t n = 0; n <= max_ep_n; ++n) {
+//        USB_INEP(n)->DIEPCTL =
+//            USB_OTG_DIEPCTL_EPDIS |
+//            USB_OTG_DIEPCTL_SNAK;
 
-/* TODO
-    otg.dev_oep_reg[0].DOEPCTL = (1 << 27);   SNAK on all OUT EPs
-    otg.dev_oep_reg[1].DOEPCTL = (1 << 27);
-    otg.dev_oep_reg[2].DOEPCTL = (1 << 27);
-    otg.dev_oep_reg[3].DOEPCTL = (1 << 27);
-    otg.dev_reg.DAINTMSK = (1 << 16) | 1;     EP0 in and out
-    otg.dev_reg.DOEPMSK = (1 << 3) | 1;       STUPM and XFRCM
-    otg.dev_reg.DIEPEMPMSK = (1 << 3) | 1;    EP0 and EP3?
-*/
+//        USB_OUTEP(n)->DOEPCTL =
+//            USB_OTG_DOEPCTL_EPDIS |
+//            USB_OTG_DOEPCTL_SNAK;
+//    }
 
     state = State::INITIALIZED;
 }
 
 
-void DWC_OTG_Device::isr_speed_complete()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_speed_complete()
 {
     // end of reset
     // http://cgit.jvnv.net/laks/tree/usb/USB_otg.h?id=4100075#n183
@@ -633,7 +632,8 @@ void DWC_OTG_Device::isr_speed_complete()
 }
 
 
-void DWC_OTG_Device::isr_read_rxfifo()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_read_rxfifo()
 {
     // http://cgit.jvnv.net/laks/tree/usb/USB_otg.h?id=4100075#n20
     // https://github.com/osrf/wandrr/blob/master/firmware/foot/common/usb.c#L417-L482
@@ -660,41 +660,59 @@ void DWC_OTG_Device::isr_read_rxfifo()
     PacketStatus const packet_status = static_cast<PacketStatus>(
         (status & USB_OTG_GRXSTSP_PKTSTS) >> USB_OTG_GRXSTSP_PKTSTS_Pos);
 
-    auto ep = endpoints[ep_n];
-    if (ep == nullptr) {
-        d_critical("!!! EP %s is null\n", ep_n);
-        while (true) ;;
-    }
-
     d_info("isr_read_rxfifo() pktsts=%s ep=%s len=%s\n",
         pktsts_names[static_cast<uint32_t>(packet_status)], ep_n, len);
 
     if (packet_status == PacketStatus::SetupPacket) {
         uint8_t const stupcnt =
             (USB_OUTEP(0)->DOEPTSIZ >> USB_OTG_DOEPTSIZ_STUPCNT_Pos) & 3;
+        //uint8_t const n_setup_pkts = 3 - stupcnt;
 
-        if (stupcnt != 2) {
-            print("--> STUPCNT %s\n", stupcnt);
+        if (stupcnt != 2 || len != 8) {
+            d_warn("--> STUPCNT %s, len %s\n", stupcnt, len);
         }
 
-        auto buf = endpoint_0.get_setup_pkt_buffer();
+        auto buf = ctrl_ep_dispatcher.get_setup_pkt_buffer();
         read_packet(buf, len);
 
         return;
     }
 
     if (packet_status == PacketStatus::OutPacket) {
-        auto buffer = ep->get_buffer(len);
+        auto transfer = out_transfers[ep_n];
+        if (transfer == nullptr) {
+            d_assert("!!! EP %s is null\n"); // TODO, ep_n);
+        }
+
+        auto buffer = transfer->get_buffer(len);
 
         if (buffer != nullptr) {
             read_packet(buffer, len);
-            ep->on_filled(buffer, len);
+            transfer->on_filled(buffer, len);
         } // else what? need to discard pkt
     }
+
+#if 0
+    // TODO tempo
+    bool const rxflvl = USB_CORE->GINTSTS & USB_OTG_GINTSTS_RXFLVL;
+    d_critical("  RXFLVL: %s", !!rxflvl);
+    if (rxflvl) {
+        uint32_t const status = USB_CORE->GRXSTSR;  // peek
+        uint8_t  const ep_n = status & USB_OTG_GRXSTSP_EPNUM;
+        uint32_t const len = (status & USB_OTG_GRXSTSP_BCNT) >> USB_OTG_GRXSTSP_BCNT_Pos;
+        PacketStatus const packet_status = static_cast<PacketStatus>(
+            (status & USB_OTG_GRXSTSP_PKTSTS) >> USB_OTG_GRXSTSP_PKTSTS_Pos);
+
+        d_critical("; GRXSTSR: pktsts=%s ep=%s len=%s",
+            pktsts_names[static_cast<uint32_t>(packet_status)], ep_n, len);
+    }
+    d_critical("\n");
+#endif
 }
 
 
-void DWC_OTG_Device::isr_out_ep_interrupt()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_out_ep_interrupt()
 {
     uint16_t out_ep_interrupt_flags =
         (USB_DEV->DAINT & USB_OTG_DAINT_OEPINT) >> USB_OTG_DAINT_OEPINT_Pos;
@@ -710,29 +728,28 @@ void DWC_OTG_Device::isr_out_ep_interrupt()
         ++ep_n;
     }
 
-    auto ep = endpoints[ep_n];
-    if (ep == nullptr) {
-        d_critical("!!! EP %s is null, halt\n", ep_n);
-        while (true) ;;
-    }
-
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_STUP) {
         d_info("OUT %s STUP\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_STUP; // clear interrupt
-        endpoint_0.on_setup_stage();
+        ctrl_ep_dispatcher.on_setup_stage(ep_n);
     }
 
     if (USB_OUTEP(ep_n)->DOEPINT & USB_OTG_DOEPINT_XFRC) {
+        if (out_transfers[ep_n] == nullptr) {
+            d_assert("!!! EP %s is null, halt\n"); // TODO , ep_n);
+        }
+
         d_info("OUT %s XFRC\n", ep_n);
         USB_OUTEP(ep_n)->DOEPINT = USB_OTG_DOEPINT_XFRC; // clear interrupt
         // TODO docs say read DOEPTSIZx to determine size of payload,
         // it could be less than expected
-        ep->on_out_transfer_complete();
+        dispatch_out_transfer_complete(ep_n);
     }
 }
 
 
-void DWC_OTG_Device::isr_in_ep_interrupt()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_in_ep_interrupt()
 {
     uint16_t in_ep_interrupt_flags =
         (USB_DEV->DAINT & USB_OTG_DAINT_IEPINT) >> USB_OTG_DAINT_IEPINT_Pos;
@@ -748,11 +765,10 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
         ++ep_n;
     }
 
-    auto ep = endpoints[ep_n];
-    if (ep == nullptr) {
-        d_critical("!!! EP %s is null, halt\n", ep_n);
-        while (true) ;;
+    if (in_transfers[ep_n] == nullptr) {
+        d_assert("!!! EP %s is null, halt\n"); // TODO , ep_n);
     }
+    auto transfer = in_transfers[ep_n];
 
     // Tx FIFO empty
     if ((USB_INEP(ep_n)->DIEPINT & USB_OTG_DIEPINT_TXFE) &&
@@ -761,21 +777,21 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
         uint16_t const avail_words = USB_INEP(ep_n)->DTXFSTS;
         d_info("IN %s TXFE avail %s\n", ep_n, avail_words * 4); //, DIEPTSIZ %#10x USB_INEP(ep_n)->DIEPTSIZ);
 
-        if (ep->get_remaining() > 0) {
+        if (transfer->get_remaining() > 0) {
             uint16_t const chunk_size = std::min(
-                ep->get_remaining(), (size_t)(avail_words * 4));
+                transfer->get_remaining(), (size_t)(avail_words * 4));
 
             // TODO what about aliasing?
             for (uint32_t word_idx = 0; word_idx < (chunk_size + 3) / 4; word_idx++) {
-                *USB_FIFO(ep_n) = *((uint32_t *)&ep->get_data_ptr()[word_idx * 4]);
+                *USB_FIFO(ep_n) = *((uint32_t *)&transfer->get_data_ptr()[word_idx * 4]);
             }
 
-            ep->on_transferred(chunk_size);
+            transfer->on_transferred(chunk_size);
 
             d_verbose("  TXFE: pushed %s, rem %s\n", chunk_size, ep->get_remaining());
         }
 
-        if (ep->get_remaining() == 0) {
+        if (transfer->get_remaining() == 0) {
             // disable TXFE interrupt for this EP
             USB_DEV->DIEPEMPMSK &= ~(1 << ep_n);
             d_verbose("  dis int\n");
@@ -786,10 +802,43 @@ void DWC_OTG_Device::isr_in_ep_interrupt()
     if (USB_INEP(ep_n)->DIEPINT & USB_OTG_DIEPINT_XFRC) {
         d_info("IN %s XFRC\n", ep_n);
         USB_INEP(ep_n)->DIEPINT = USB_OTG_DIEPINT_XFRC;
-        ep->on_in_transfer_complete();
+        dispatch_in_transfer_complete(ep_n);
     }
 
 //    d_info("isr_in_ep_interrupt(): unknown, ep=%s DIEPINT=%#10x\n",
 //        ep, USB_INEP(ep)->DIEPINT);
 //    while (true) ;;
 }
+
+
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::read_packet(unsigned char* dest_buf, uint16_t n_bytes)
+{
+    uint32_t fifo_tmp;
+    unsigned char const *fifo_buf = reinterpret_cast<unsigned char const*>(&fifo_tmp);
+
+    for (int i = 0; i < n_bytes; ++i) {
+        if (i % 4 == 0) {
+            fifo_tmp = *USB_FIFO(0);
+        }
+
+        dest_buf[i] = fifo_buf[i % 4];
+    }
+}
+
+
+template<size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+DWCEndpointConfig const& DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::get_dwc_ep_config(uint8_t ep_n)
+{
+    for (size_t i = 0; ; ++i) {
+        if (dwc_endpoint_config[i].n > 15) {
+            d_assert("no such endpoint in dwc_endpoint_config");  // TODO ep_n
+        }
+
+        if (dwc_endpoint_config[i].n == ep_n) {
+            return dwc_endpoint_config[i];
+        }
+    }
+}
+
+#endif // DWC_OTG_DEVICE_IMPL_H
