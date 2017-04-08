@@ -70,12 +70,12 @@ struct StringLangIDDescriptor {
 
 
 struct Descriptors {
-    DeviceDescriptor device;
-    ConfigDescriptor config;
-    StringLangIDDescriptor lang_id;
+    DeviceDescriptor const* device;
+    ConfigDescriptor const* config;
+    StringLangIDDescriptor const* lang_id;
     unsigned char const** string;
     size_t string_len;
-    unsigned char* msft_string;
+    unsigned char const* msft_string;
 };
 
 #endif // DESCRIPTORS_H
