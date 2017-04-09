@@ -4,6 +4,7 @@
 #include "dispatchers.h"
 #include "device.h"
 #include "handler.h"
+#include "transfers.h"
 #include "debug.h"
 
 
@@ -28,6 +29,12 @@ void EPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n) {
 
     device.out_transfers[ep_n] = nullptr;
     transfer->on_complete();
+}
+
+
+namespace {
+    ZeroLengthRxTransfer zl_rx_transfer;
+    ZeroLengthTxTransfer zl_tx_transfer;
 }
 
 
@@ -89,10 +96,10 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
     // otherwise initialize status stage
     if (in_out == InOut::In) {
         print("CE: IN status stage compl, no data stage, receiving (OUT) ZLP\n");
-        device.ep0_receive_zlp();
+        device.submit(0, zl_rx_transfer);
     } else {
         print("CE: OUT status stage compl, no data stage, sending (IN) ZLP\n");
-        device.transmit_zlp(ep_n);
+        device.submit(0, zl_tx_transfer);
     }
 
     state = CtrlState::STATUS_STAGE;
@@ -114,7 +121,7 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
     if (state == CtrlState::DATA_STAGE) {
         // init status stage
         print("CE: IN data stage compl, receiving (OUT) ZLP\n");
-        device.ep0_receive_zlp();
+        device.submit(0, zl_rx_transfer);
 
 //        if (result == DataResult::DONE) {
 //        } else {
@@ -148,7 +155,7 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
     if (state == CtrlState::DATA_STAGE) {
         // init status stage
         print("CE: OUT data stage compl, sending (IN) ZLP\n");
-        device.transmit_zlp(ep_n);
+        device.submit(0, zl_tx_transfer);
 
 //        if (result == DataResult::DONE) {
 //        } else {

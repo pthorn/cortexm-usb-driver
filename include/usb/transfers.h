@@ -23,6 +23,41 @@ public:
 };
 
 
+class ZeroLengthRxTransfer: public RxTransfer {
+public:
+    unsigned char* get_buffer(size_t bytes) override {
+        return nullptr;
+    }
+
+    size_t get_remaining() override {
+        return 0;
+    }
+
+    void on_filled(uint8_t* buffer, size_t bytes) override { }
+
+    void on_complete() override { }
+};
+
+
+class ZeroLengthTxTransfer: public TxTransfer {
+    unsigned char const* get_data_ptr() override {
+        return nullptr;
+    }
+
+    size_t get_remaining() override {
+        return 0;
+    }
+
+    void on_transferred(size_t bytes) override {
+
+    }
+
+    void on_complete() override {
+
+    }
+};
+
+
 template<typename Handler>
 class BufferTxTransfer: public TxTransfer {
 public:
@@ -82,7 +117,6 @@ private:
 template<size_t size, typename Handler>
 class BufferRxTransfer: public RxTransfer {
 public:
-    //using Me = BufferRxTransfer<size, Handler>;
     using Callback = void (*)(Handler&, BufferRxTransfer<size, Handler>&);
 
     BufferRxTransfer() :

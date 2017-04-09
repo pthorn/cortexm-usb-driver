@@ -23,6 +23,10 @@
 template<typename T>
 static T div_round_up(T a, T b)
 {
+    if (a == 0) {
+        return 1;
+    }
+
     return (a + (b - 1)) / b;
 }
 
