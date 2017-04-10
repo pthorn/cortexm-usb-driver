@@ -150,23 +150,6 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, RxTra
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::transmit_zlp(uint8_t ep_n)
-{
-    d_info("transmit_zlp(%s)\n", ep_n);
-
-    // packet count: 1, transfer size: 0 bytes
-    USB_INEP(ep_n)->DIEPTSIZ =
-        (1 << USB_OTG_DIEPTSIZ_PKTCNT_Pos) |
-        0;  // size
-
-    // enable endpoint
-    USB_INEP(ep_n)->DIEPCTL |=
-        USB_OTG_DIEPCTL_EPENA | // activate transfer
-        USB_OTG_DIEPCTL_CNAK;   // clear NAK bit
-}
-
-
 // TODO support STALL for OUT EPs
 // TODO support unSTALL bulk/interrupt EPs
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
@@ -175,24 +158,6 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::stall(uint8_t ep)
     // control endpoints: the core clears STALL bit when a SETUP token is received
     // bulk and interrupt endpoints: core never clears this bit
     USB_INEP(ep)->DIEPCTL = USB_OTG_DIEPCTL_STALL;
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_receive_zlp()
-{
-    d_info("ep0_receive_zlp()\n");
-
-    USB_OUTEP(0)->DOEPTSIZ =
-        (0 << USB_OTG_DOEPTSIZ_STUPCNT_Pos) |  // no SETUP packets
-        (1 << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |   // rx 1 packet
-        // TODO ep0 transfer size, currently = max pkt size
-        // TODO zero?
-        get_ep_config(0, InOut::Out).max_pkt_size;
-
-    USB_OUTEP(0)->DOEPCTL |=
-        USB_OTG_DOEPCTL_EPENA  |  // enable endpoint
-        USB_OTG_DOEPCTL_CNAK;     // clear NAK bit
 }
 
 

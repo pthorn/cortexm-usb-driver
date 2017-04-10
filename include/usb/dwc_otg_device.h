@@ -40,8 +40,6 @@ public:
     void stall(uint8_t ep) override;
 
     // for use by ControlEndpoint
-    void transmit_zlp(uint8_t ep_n) override;
-    void ep0_receive_zlp() override;
     void ep0_init_ctrl_transfer() override;
 
 protected:

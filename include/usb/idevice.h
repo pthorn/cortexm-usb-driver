@@ -26,8 +26,6 @@ public:
     virtual uint8_t get_configuration() = 0;
     virtual bool set_configuration(uint8_t configuration) = 0;
     virtual void set_address(uint16_t address) = 0;
-    virtual void transmit_zlp(uint8_t ep_n) = 0;
-    virtual void ep0_receive_zlp() = 0;
     virtual void ep0_init_ctrl_transfer() = 0;
 
     // for use by all handlers
