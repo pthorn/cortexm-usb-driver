@@ -179,6 +179,140 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_init_ctrl_transfer()
 }
 
 
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr()
+{
+    uint32_t gintsts = USB_CORE->GINTSTS;
+
+//    d_info("\n isr() gintsts=%#10x gintmsk=%#10x masked=%#10x\n",
+//          gintsts, USB_CORE->GINTMSK, gintsts & USB_CORE->GINTMSK);
+
+    d_info("\nisr() masked=%#10x - ", gintsts & USB_CORE->GINTMSK);
+
+    if ((gintsts & USB_CORE->GINTMSK) == 0) {
+        d_info("???\n");
+        return;
+    }
+
+    // must be handled before RXFLVL because the RXFLVL handler
+    // affects generation of OUT EP interrupts
+    if (gintsts & USB_OTG_GINTSTS_OEPINT) {
+        d_info("OEPINT\n");
+        isr_out_ep_interrupt();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_IEPINT) {
+        d_info("IEPINT\n");
+        isr_in_ep_interrupt();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_RXFLVL) {
+        d_info("RXFLVL\n");
+        isr_read_rxfifo();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_USBRST) {
+        USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBRST;  // rc_w1
+        d_info("USBRST\n");
+
+        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
+        isr_usb_reset();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_ENUMDNE) {
+        d_info("ENUMDNE\n");
+        USB_CORE->GINTSTS = USB_OTG_GINTSTS_ENUMDNE;  // rc_w1
+        isr_speed_complete();
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_USBSUSP) {
+        // no activity on the bus for 3ms
+        USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBSUSP;  // rc_w1
+
+        if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
+            d_info("USBSUSP\n");
+            USB_CORE->GINTMSK &= ~USB_OTG_GINTMSK_USBSUSPM;  // disable suspend interrupt
+            CALL_HANDLERS(on_suspend);
+        }
+
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_WKUINT) {
+        USB_CORE->GINTSTS = USB_OTG_GINTSTS_WKUINT;  // rc_w1
+        d_info("WKUINT\n");
+
+        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
+        CALL_HANDLERS(on_resume);
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_SRQINT) {
+        d_info("SRQINT\n");  // cable connect
+        USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
+        CALL_HANDLERS(on_connect);
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_OTGINT) {
+        uint32_t const gotgint = USB_CORE->GOTGINT;
+        USB_CORE->GOTGINT = 0xFFFFFFFF;
+
+        if (gotgint & USB_OTG_GOTGINT_SEDET) {
+            d_info("SEDET\n");  // session end (cable disconnect)
+            CALL_HANDLERS(on_disconnect);
+        }
+
+        return;
+    }
+
+    if (gintsts & USB_OTG_GINTSTS_MMIS) {
+        d_critical("!!MMIS!! halt\n");
+        while (1) ;;
+    }
+
+    d_critical("unhandled\n");
+    while (1) ;;
+}
+
+
+//
+// protected
+//
+
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_endpoints(uint8_t configuration)
+{
+    for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
+        if (ep_conf->n > 15 ) {
+            break;
+        }
+
+        if (ep_conf->n == 0) {
+            continue;
+        }
+
+        if (ep_conf->in_out == InOut::In) {
+            init_in_endpoint(*ep_conf);
+        } else {
+            init_out_endpoint(*ep_conf);
+        }
+    }
+}
+
+
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::deinit_endpoints()
+{
+    // TODO
+}
+
+
 //
 // private
 //
@@ -360,34 +494,6 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_ep0()
 
 
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_endpoints(uint8_t configuration)
-{
-    for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
-        if (ep_conf->n > 15 ) {
-            break;
-        }
-
-        if (ep_conf->n == 0) {
-            continue;
-        }
-
-        if (ep_conf->in_out == InOut::In) {
-            init_in_endpoint(*ep_conf);
-        } else {
-            init_out_endpoint(*ep_conf);
-        }
-    }
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::deinit_endpoints()
-{
-    // TODO
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
 void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_in_endpoint(EndpointConfig const& ep_conf)
 {
     // IN EP transmits data from device to host.
@@ -444,108 +550,6 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_out_endpoint(Endpoint
         (1 << (ep_conf.n + USB_OTG_DAINTMSK_OEPM_Pos));
 
     d_info("init_out_endpoint(): ep %s\n", ep_conf.n);
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr()
-{
-    uint32_t gintsts = USB_CORE->GINTSTS;
-
-//    d_info("\n isr() gintsts=%#10x gintmsk=%#10x masked=%#10x\n",
-//          gintsts, USB_CORE->GINTMSK, gintsts & USB_CORE->GINTMSK);
-
-    d_info("\nisr() masked=%#10x - ", gintsts & USB_CORE->GINTMSK);
-
-    if ((gintsts & USB_CORE->GINTMSK) == 0) {
-        d_info("???\n");
-        return;
-    }
-
-    // must be handled before RXFLVL because the RXFLVL handler
-    // affects generation of OUT EP interrupts
-    if (gintsts & USB_OTG_GINTSTS_OEPINT) {
-        d_info("OEPINT\n");
-        isr_out_ep_interrupt();
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_IEPINT) {
-        d_info("IEPINT\n");
-        isr_in_ep_interrupt();
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_RXFLVL) {
-        d_info("RXFLVL\n");
-        isr_read_rxfifo();
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_USBRST) {
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBRST;  // rc_w1
-        d_info("USBRST\n");
-
-        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
-        isr_usb_reset();
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_ENUMDNE) {
-        d_info("ENUMDNE\n");
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_ENUMDNE;  // rc_w1
-        isr_speed_complete();
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_USBSUSP) {
-        // no activity on the bus for 3ms
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_USBSUSP;  // rc_w1
-
-        if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
-            d_info("USBSUSP\n");
-            USB_CORE->GINTMSK &= ~USB_OTG_GINTMSK_USBSUSPM;  // disable suspend interrupt
-            CALL_HANDLERS(on_suspend);
-        }
-
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_WKUINT) {
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_WKUINT;  // rc_w1
-        d_info("WKUINT\n");
-
-        USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
-        CALL_HANDLERS(on_resume);
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_SRQINT) {
-        d_info("SRQINT\n");  // cable connect
-        USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
-        CALL_HANDLERS(on_connect);
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_OTGINT) {
-        uint32_t const gotgint = USB_CORE->GOTGINT;
-        USB_CORE->GOTGINT = 0xFFFFFFFF;
-
-        if (gotgint & USB_OTG_GOTGINT_SEDET) {
-            d_info("SEDET\n");  // session end (cable disconnect)
-            CALL_HANDLERS(on_disconnect);
-        }
-
-        return;
-    }
-
-    if (gintsts & USB_OTG_GINTSTS_MMIS) {
-        d_critical("!!MMIS!! halt\n");
-        while (1) ;;
-    }
-
-    d_critical("unhandled\n");
-    while (1) ;;
 }
 
 
