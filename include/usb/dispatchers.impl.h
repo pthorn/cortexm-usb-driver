@@ -80,25 +80,25 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
     InOut const in_out = setup_packet.bmRequestType & ENDPOINT_IN ? InOut::In : InOut::Out;
 
     if (has_data_stage && in_out == InOut::In && device.in_transfers[ep_n] == nullptr) {
-        d_assert("hadler did not submit a data stage transfer 1\n");
+        d_assert("handler did not submit a data stage transfer 1\n");
     }
     if (has_data_stage && in_out == InOut::Out && device.out_transfers[ep_n] == nullptr) {
-        d_assert("hadler did not submit a data stage transfer 2\n");
+        d_assert("handler did not submit a data stage transfer 2\n");
     }
 
     if (has_data_stage) {
         // data stage transfer has been initialized by a handler
-        print("CE: status stage compl, data stage\n");
+        print("CE: setup stage compl, data stage\n");
         state = CtrlState::DATA_STAGE;
         return;
     }
 
     // otherwise initialize status stage
     if (in_out == InOut::In) {
-        print("CE: IN status stage compl, no data stage, receiving (OUT) ZLP\n");
+        print("CE: IN setup stage compl, no data stage, receiving (OUT) ZLP\n");
         device.submit(0, zl_rx_transfer);
     } else {
-        print("CE: OUT status stage compl, no data stage, sending (IN) ZLP\n");
+        print("CE: OUT setup stage compl, no data stage, sending (IN) ZLP\n");
         device.submit(0, zl_tx_transfer);
     }
 
@@ -134,7 +134,7 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
     }
 
     if (state == CtrlState::STATUS_STAGE) {
-        //current_handler->handle_ctrl_status_stage();
+        print("CE: IN status stage compl, reinit\n");
         reinit();
     }
 }
@@ -168,7 +168,7 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
     }
 
     if (state == CtrlState::STATUS_STAGE) {
-        //current_handler->handle_ctrl_status_stage();
+        print("CE: OUT status stage compl, reinit\n");
         reinit();
     }
 }
