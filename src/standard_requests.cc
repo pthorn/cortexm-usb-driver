@@ -17,7 +17,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     //
 
     // get descriptor
-    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
+    if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_DESCRIPTOR
     ) {
         print("get descriptor\n");
@@ -25,7 +25,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     }
 
     // set address
-    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_OUT) &&
+    if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_ADDRESS
     ) {
         print("set address %s\n", get_setup_pkt().wValue);
@@ -34,7 +34,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     }
 
     // get configuration
-    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
+    if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_CONFIGURATION
     ) {
         print("get configuration\n");
@@ -51,8 +51,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     }
 
     // set configuration
-    // TODO support multiple configurations?
-    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_OUT) &&
+    if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_CONFIGURATION
     ) {
         print("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
@@ -66,7 +65,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
 
     // get device status
     // TODO bit 0 = self-powered, bit 1 = remote wkup enabled
-    if (get_setup_pkt().bmRequestType == (RECIPIENT_DEVICE | ENDPOINT_IN) &&
+    if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_STATUS
     ) {
         print("get status\n");
@@ -89,7 +88,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     //
 
     // set interface
-    if(get_setup_pkt().bmRequestType == (RECIPIENT_INTERFACE | ENDPOINT_OUT) &&
+    if(get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_INTERFACE | ENDPOINT_OUT) &&
        get_setup_pkt().bRequest == SET_INTERFACE
     ) {
         print("set interface\n");
