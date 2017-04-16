@@ -1,8 +1,8 @@
 #include <algorithm>
 
-#include "standard_requests.h"
-#include "descriptors.h"
-#include "transfers.h"
+#include "usb/standard_requests.h"
+#include "usb/descriptors.h"
+#include "usb/transfers.h"
 #include "print.h"
 
 
