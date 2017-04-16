@@ -116,21 +116,21 @@ SetupResult StandardRequests::send_descriptor()
     switch (descriptor_type) {
     case DESCRIPTOR_DEVICE:
         print("device\n");
-        descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->device);
-        descriptor_size = descriptors->device.bLength;  //sizeof(descriptors->device);
+        descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->device);
+        descriptor_size = descriptors->device->bLength;
         break;
 
     case DESCRIPTOR_CONFIGURATION:
         print("config\n");
-        descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->config);
-        descriptor_size = descriptors->config.wTotalLength;  //sizeof(descriptors->config);
+        descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->config);
+        descriptor_size = descriptors->config->wTotalLength;
         break;
 
     case DESCRIPTOR_STRING:
         print("string\n");
         if (descriptor_index == 0) {
-            descriptor_buf = reinterpret_cast<unsigned char const*>(&descriptors->lang_id);
-            descriptor_size = descriptors->lang_id.bLength;
+            descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->lang_id);
+            descriptor_size = descriptors->lang_id->bLength;
         } else if (descriptor_index == 0xEE && descriptors->msft_string != nullptr) {
             descriptor_buf = descriptors->msft_string;
             descriptor_size = descriptors->msft_string[0];
