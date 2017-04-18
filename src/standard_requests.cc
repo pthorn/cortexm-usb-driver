@@ -39,7 +39,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     ) {
         print("get configuration\n");
 
-        static unsigned char data[] = {};
+        static unsigned char data[] = {0x00};
         data[0] = device->get_configuration();
 
         ctrl_tx_transfer.init(data, sizeof(data), this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
