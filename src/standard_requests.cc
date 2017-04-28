@@ -3,7 +3,7 @@
 #include "usb/standard_requests.h"
 #include "usb/descriptors.h"
 #include "usb/transfers.h"
-#include "print.h"
+#include "usb/debug.h"
 
 
 //BufferRxTransfer<3, MockHandler> ctrl_rx_transfer;
@@ -20,7 +20,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_DESCRIPTOR
     ) {
-        print("get descriptor\n");
+        d_info("get descriptor\n");
         return send_descriptor();
     }
 
@@ -28,7 +28,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_ADDRESS
     ) {
-        print("set address %s\n", get_setup_pkt().wValue);
+        d_info("set address %s\n", get_setup_pkt().wValue);
         device->set_address(get_setup_pkt().wValue);
         return SetupResult::NO_DATA_STAGE;
     }
@@ -37,7 +37,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_CONFIGURATION
     ) {
-        print("get configuration\n");
+        d_info("get configuration\n");
 
         static unsigned char data[] = {0x00};
         data[0] = device->get_configuration();
@@ -54,7 +54,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_OUT) &&
         get_setup_pkt().bRequest == SET_CONFIGURATION
     ) {
-        print("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
+        d_info("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
 
         if (device->set_configuration(get_setup_pkt().wValue & 0xFF)) {
             return SetupResult::NO_DATA_STAGE;
@@ -68,7 +68,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if (get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_DEVICE | ENDPOINT_IN) &&
         get_setup_pkt().bRequest == GET_STATUS
     ) {
-        print("get status\n");
+        d_info("get status\n");
 
         static unsigned char const data[] = {0x00, 0x00};
 
@@ -91,11 +91,11 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     if(get_setup_pkt().bmRequestType == (REQUEST_TYPE_STANDARD | RECIPIENT_INTERFACE | ENDPOINT_OUT) &&
        get_setup_pkt().bRequest == SET_INTERFACE
     ) {
-        print("set interface\n");
+        d_info("set interface\n");
         return SetupResult::NO_DATA_STAGE;
     }
 
-    print("unknown\n");
+    d_info("unknown\n");
     return SetupResult::UNHANDLED;
 }
 
@@ -106,7 +106,7 @@ SetupResult StandardRequests::send_descriptor()
     uint8_t const descriptor_index = get_setup_pkt().wValue & 0xFF;
     uint16_t const descriptor_lang_id = get_setup_pkt().wIndex;
 
-    print("send_descriptor() type=%#x index=%s langid=%#x: ",
+    d_info("send_descriptor() type=%#x index=%s langid=%#x: ",
         descriptor_type, descriptor_index, descriptor_lang_id);
 
     unsigned char const* descriptor_buf;
@@ -114,19 +114,19 @@ SetupResult StandardRequests::send_descriptor()
 
     switch (descriptor_type) {
     case DESCRIPTOR_DEVICE:
-        print("device\n");
+        d_info("device\n");
         descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->device);
         descriptor_size = descriptors->device->bLength;
         break;
 
     case DESCRIPTOR_CONFIGURATION:
-        print("config\n");
+        d_info("config\n");
         descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->config);
         descriptor_size = descriptors->config->wTotalLength;
         break;
 
     case DESCRIPTOR_STRING:
-        print("string\n");
+        d_info("string\n");
         if (descriptor_index == 0) {
             descriptor_buf = reinterpret_cast<unsigned char const*>(descriptors->lang_id);
             descriptor_size = descriptors->lang_id->bLength;
@@ -135,7 +135,7 @@ SetupResult StandardRequests::send_descriptor()
             descriptor_size = descriptors->msft_string[0];
         } else {
             if (descriptor_index > descriptors->string_len) {
-                print("index too large!\n");
+                d_info("index too large!\n");
                 return SetupResult::STALL;
             }
 
@@ -145,7 +145,7 @@ SetupResult StandardRequests::send_descriptor()
         break;
 
     default:
-        print("unknown\n");
+        d_info("unknown\n");
         return SetupResult::UNHANDLED;
     }
 
