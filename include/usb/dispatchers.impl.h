@@ -41,14 +41,14 @@ namespace {
 template <typename Device>
 void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 {
-    print("CtrlEPDispatcher::on_setup_stage() bmRT=%#x bR=%#x wI=%s wV=%s wL=%s\n",
+    d_info("CtrlEPDispatcher::on_setup_stage() bmRT=%#x bR=%#x wI=%s wV=%s wL=%s\n",
         setup_packet.bmRequestType, setup_packet.bRequest,
         setup_packet.wIndex, setup_packet.wValue,
         setup_packet.wLength);
 
     // TODO possible irl
     if (device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr) {
-        print("device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr, CtrlEPDispatcher::on_setup_stage()\n");
+        d_warn("device.in_transfers[ep_n] != nullptr || device.in_transfers[ep_n] != nullptr, CtrlEPDispatcher::on_setup_stage()\n");
     }
     device.in_transfers[ep_n] = nullptr;
     device.out_transfers[ep_n] = nullptr;
@@ -88,17 +88,17 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 
     if (has_data_stage) {
         // data stage transfer has been initialized by a handler
-        print("CE: setup stage compl, data stage\n");
+        d_info("CE: setup stage compl, data stage\n");
         state = CtrlState::DATA_STAGE;
         return;
     }
 
     // otherwise initialize status stage
     if (in_out == InOut::In) {
-        print("CE: IN setup stage compl, no data stage, receiving (OUT) ZLP\n");
+        d_info("CE: IN setup stage compl, no data stage, receiving (OUT) ZLP\n");
         device.submit(0, zl_rx_transfer);
     } else {
-        print("CE: OUT setup stage compl, no data stage, sending (IN) ZLP\n");
+        d_info("CE: OUT setup stage compl, no data stage, sending (IN) ZLP\n");
         device.submit(0, zl_tx_transfer);
     }
 
@@ -120,12 +120,12 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
 
     if (state == CtrlState::DATA_STAGE) {
         // init status stage
-        print("CE: IN data stage compl, receiving (OUT) ZLP\n");
+        d_info("CE: IN data stage compl, receiving (OUT) ZLP\n");
         device.submit(0, zl_rx_transfer);
 
 //        if (result == DataResult::DONE) {
 //        } else {
-//            print("CE: IN data stage compl, STALL\n");
+//            d_info("CE: IN data stage compl, STALL\n");
 //            device.stall(0);
 //        }
 
@@ -134,7 +134,7 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
     }
 
     if (state == CtrlState::STATUS_STAGE) {
-        print("CE: IN status stage compl, reinit\n");
+        d_info("CE: IN status stage compl, reinit\n");
         reinit();
     }
 }
@@ -154,12 +154,12 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
 
     if (state == CtrlState::DATA_STAGE) {
         // init status stage
-        print("CE: OUT data stage compl, sending (IN) ZLP\n");
+        d_info("CE: OUT data stage compl, sending (IN) ZLP\n");
         device.submit(0, zl_tx_transfer);
 
 //        if (result == DataResult::DONE) {
 //        } else {
-//            print("CE: OUT data stage compl, STALL\n");
+//            d_info("CE: OUT data stage compl, STALL\n");
 //            device.stall(0);
 //        }
 
@@ -168,7 +168,7 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
     }
 
     if (state == CtrlState::STATUS_STAGE) {
-        print("CE: OUT status stage compl, reinit\n");
+        d_info("CE: OUT status stage compl, reinit\n");
         reinit();
     }
 }
