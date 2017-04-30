@@ -75,7 +75,7 @@ public:
         unsigned char const* data,
         size_t size_,
         Handler* handler_,
-        Callback callback_
+        Callback callback_ = nullptr
     ) {
         data_to_tx = data;
         size = size_;
@@ -102,7 +102,9 @@ public:
     }
 
     void on_complete() override {
-        callback(*handler, *this);
+        if (callback != nullptr) {
+            callback(*handler, *this);
+        }
     }
 
 private:
@@ -134,7 +136,7 @@ public:
         return size - remaining_bytes;
     }
 
-    BufferRxTransfer<size, Handler>& init(Handler* handler_, Callback callback_) {
+    BufferRxTransfer<size, Handler>& init(Handler* handler_, Callback callback_ = nullptr) {
         handler = handler_;
         callback = callback_;
         data_to_tx = buffer;
@@ -159,7 +161,9 @@ public:
     }
 
     void on_complete() override {
-        callback(*handler, *this);
+        if (callback != nullptr) {
+            callback(*handler, *this);
+        }
     }
 
 private:

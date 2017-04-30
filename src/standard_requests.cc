@@ -42,9 +42,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
         static unsigned char data[] = {0x00};
         data[0] = device->get_configuration();
 
-        ctrl_tx_transfer.init(data, sizeof(data), this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
-            //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
-        });
+        ctrl_tx_transfer.init(data, sizeof(data), this);
         submit(0, ctrl_tx_transfer);
 
         return SetupResult::DATA_STAGE;
@@ -72,12 +70,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
 
         static unsigned char const data[] = {0x00, 0x00};
 
-//        get_ep0().init_transfer(data, sizeof(data));
-//        device->start_in_transfer(&get_ep0());
-
-        ctrl_tx_transfer.init(data, sizeof(data), this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
-            //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
-        });
+        ctrl_tx_transfer.init(data, sizeof(data), this);
         submit(0, ctrl_tx_transfer);
 
         return SetupResult::DATA_STAGE;
@@ -152,9 +145,7 @@ SetupResult StandardRequests::send_descriptor()
     // host can request more or fewer bytes than the actual descriptor size
     uint16_t length = std::min(descriptor_size, get_setup_pkt().wLength);
 
-    ctrl_tx_transfer.init(descriptor_buf, length, this, [](StandardRequests& self, BufferTxTransfer<StandardRequests>& transfer) {
-        //print("tx_transfer callback, sent %d bytes\n", transfer.get_transferred());
-    });
+    ctrl_tx_transfer.init(descriptor_buf, length, this);
     submit(0, ctrl_tx_transfer);
 
     return SetupResult::DATA_STAGE;
