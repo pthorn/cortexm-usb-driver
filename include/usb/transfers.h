@@ -145,6 +145,13 @@ public:
         return *this;
     }
 
+    BufferRxTransfer<size, Handler>& reinit() {
+        data_to_tx = buffer;
+        remaining_bytes = size;
+
+        return *this;
+    }
+
     // for driver
 
     unsigned char* get_buffer(size_t bytes) override {
