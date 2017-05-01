@@ -6,8 +6,8 @@
 
 #include "defs.h"
 
-class RxTransfer;
-class TxTransfer;
+class IRxTransfer;
+class ITxTransfer;
 
 
 class IDevice
@@ -30,8 +30,8 @@ public:
 
     // for use by all handlers
     virtual SetupPacket const& get_setup_pkt() = 0;
-    virtual void submit(uint8_t ep_n, RxTransfer& transfer) = 0;
-    virtual void submit(uint8_t ep_n, TxTransfer& transfer) = 0;
+    virtual void submit(uint8_t ep_n, IRxTransfer& transfer) = 0;
+    virtual void submit(uint8_t ep_n, ITxTransfer& transfer) = 0;
     virtual void stall(uint8_t ep) = 0;
 
 protected:

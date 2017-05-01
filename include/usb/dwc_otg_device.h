@@ -35,8 +35,8 @@ public:
     // for use by StandardRequests
     void set_address(uint16_t address) override;
 
-    void submit(uint8_t ep_n, RxTransfer& transfer) override;
-    void submit(uint8_t ep_n, TxTransfer& transfer) override;
+    void submit(uint8_t ep_n, IRxTransfer& transfer) override;
+    void submit(uint8_t ep_n, ITxTransfer& transfer) override;
     void stall(uint8_t ep) override;
 
     // for use by ControlEndpoint

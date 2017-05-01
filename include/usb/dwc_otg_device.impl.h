@@ -82,7 +82,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::set_address(uint16_t addre
 
 // ref: RM0090 rev. 13 page 1365, "IN data transfers"
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, TxTransfer& transfer)
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, ITxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
 
@@ -128,7 +128,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, TxTra
 
 // ref: RM0090 rev. 13 page 1356
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, RxTransfer& transfer)
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, IRxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
     // interrupt is already enabled (RXFLVL)

@@ -7,8 +7,8 @@
 #include "dispatchers.h"
 #include "debug.h"
 
-class RxTransfer;
-class TxTransfer;
+class IRxTransfer;
+class ITxTransfer;
 class Handler;
 class EndpointConfig;
 
@@ -38,8 +38,8 @@ protected:
     EPDispatcher<Device<NHandlers, NEndpoints>> ep_dispatcher;           // dispatch non-ctrl xfers to handlers
     EndpointConfig const* endpoint_config;   // config data, can be put into flash
     Handler* handlers[NHandlers];            // pointers to handler objects
-    TxTransfer* in_transfers[NEndpoints];     // pointers to IN transfers
-    RxTransfer* out_transfers[NEndpoints];    // pointers to OUT transfers
+    ITxTransfer* in_transfers[NEndpoints];   // pointers to IN transfers
+    IRxTransfer* out_transfers[NEndpoints];  // pointers to OUT transfers
     State state;
     uint8_t current_configuration;
 };

@@ -4,8 +4,8 @@
 #include "defs.h"
 #include "idevice.h"
 
-class RxTransfer;
-class TxTransfer;
+class IRxTransfer;
+class ITxTransfer;
 
 
 class Handler
@@ -37,11 +37,11 @@ protected:
         return device->get_setup_pkt();
     }
 
-    void submit(uint8_t ep_n, RxTransfer& transfer) {
+    void submit(uint8_t ep_n, IRxTransfer& transfer) {
         return device->submit(ep_n, transfer);
     }
 
-    void submit(uint8_t ep_n, TxTransfer& transfer) {
+    void submit(uint8_t ep_n, ITxTransfer& transfer) {
         return device->submit(ep_n, transfer);
     }
 

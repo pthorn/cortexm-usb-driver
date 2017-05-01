@@ -5,7 +5,7 @@
 #include <cstdint>
 
 
-class RxTransfer {
+class IRxTransfer {
 public:
     virtual unsigned char* get_buffer(size_t bytes) = 0;
     virtual size_t get_remaining() = 0;
@@ -14,7 +14,7 @@ public:
 };
 
 
-class TxTransfer {
+class ITxTransfer {
 public:
     virtual unsigned char const* get_data_ptr() = 0;
     virtual size_t get_remaining() = 0;
@@ -23,7 +23,7 @@ public:
 };
 
 
-class ZeroLengthRxTransfer: public RxTransfer {
+class ZeroLengthRxTransfer: public IRxTransfer {
 public:
     unsigned char* get_buffer(size_t bytes) override {
         return nullptr;
@@ -39,7 +39,7 @@ public:
 };
 
 
-class ZeroLengthTxTransfer: public TxTransfer {
+class ZeroLengthTxTransfer: public ITxTransfer {
     unsigned char const* get_data_ptr() override {
         return nullptr;
     }
@@ -59,7 +59,7 @@ class ZeroLengthTxTransfer: public TxTransfer {
 
 
 template<typename Handler>
-class BufferTxTransfer: public TxTransfer {
+class BufferTxTransfer: public ITxTransfer {
 public:
     using Callback = void (*)(Handler&, BufferTxTransfer<Handler>&);
 
@@ -117,7 +117,7 @@ private:
 
 
 template<size_t size, typename Handler>
-class BufferRxTransfer: public RxTransfer {
+class BufferRxTransfer: public IRxTransfer {
 public:
     using Callback = void (*)(Handler&, BufferRxTransfer<size, Handler>&);
 
@@ -184,7 +184,7 @@ private:
 
 
 template<typename Handler>
-class BufferRxTransfer2: public RxTransfer {
+class BufferRxTransfer2: public IRxTransfer {
 public:
     using Callback = void (*)(Handler&, BufferRxTransfer2<Handler>&);
 
