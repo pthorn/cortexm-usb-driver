@@ -182,4 +182,71 @@ private:
 };
 
 
+
+template<typename Handler>
+class BufferRxTransfer2: public RxTransfer {
+public:
+    using Callback = void (*)(Handler&, BufferRxTransfer2<Handler>&);
+
+    BufferRxTransfer2() {  }
+
+    // for handler
+
+    unsigned char* get_buffer() {
+        return buffer;
+    }
+
+    size_t get_transferred() {
+        return transferred;
+    }
+
+    BufferRxTransfer2<Handler>& init(
+        unsigned char* data,
+        size_t size_,
+        Handler* handler_,
+        Callback callback_ = nullptr
+    ) {
+        handler = handler_;
+        callback = callback_;
+        buffer = data;
+        transfer_size = size_;
+        transferred = 0;
+
+        return *this;
+    }
+
+    BufferRxTransfer2<Handler>& reinit() {
+        transferred = 0;
+
+        return *this;
+    }
+
+    // for driver
+
+    unsigned char* get_buffer(size_t bytes) override {
+        return buffer + transferred;
+    }
+
+    size_t get_remaining() override {
+        return transfer_size - transferred;
+    }
+
+    void on_filled(unsigned char* buffer, size_t bytes) override {
+        transferred += bytes;
+    }
+
+    void on_complete() override {
+        if (callback != nullptr) {
+            callback(*handler, *this);
+        }
+    }
+
+private:
+    Handler* handler;
+    Callback callback;
+    unsigned char* buffer;
+    size_t transfer_size;
+    size_t transferred;
+};
+
 #endif // TRANSFERS_H
