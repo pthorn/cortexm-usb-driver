@@ -59,11 +59,11 @@ class ZeroLengthTxTransfer: public ITxTransfer {
 
 
 template<typename Handler>
-class BufferTxTransfer: public ITxTransfer {
+class TxTransfer: public ITxTransfer {
 public:
-    using Callback = void (*)(Handler&, BufferTxTransfer<Handler>&);
+    using Callback = void (*)(Handler&, TxTransfer<Handler>&);
 
-    BufferTxTransfer() { }
+    TxTransfer() { }
 
     // for handler
 
@@ -71,7 +71,7 @@ public:
         return size - remaining_bytes;
     }
 
-    BufferTxTransfer& init(
+    TxTransfer& init(
         unsigned char const* data,
         size_t size_,
         Handler* handler_,
@@ -182,13 +182,12 @@ private:
 };
 
 
-
 template<typename Handler>
-class BufferRxTransfer2: public IRxTransfer {
+class RxTransfer: public IRxTransfer {
 public:
-    using Callback = void (*)(Handler&, BufferRxTransfer2<Handler>&);
+    using Callback = void (*)(Handler&, RxTransfer<Handler>&);
 
-    BufferRxTransfer2() {  }
+    RxTransfer() {  }
 
     // for handler
 
@@ -200,7 +199,7 @@ public:
         return transferred;
     }
 
-    BufferRxTransfer2<Handler>& init(
+    RxTransfer<Handler>& init(
         unsigned char* data,
         size_t size_,
         Handler* handler_,
@@ -215,7 +214,7 @@ public:
         return *this;
     }
 
-    BufferRxTransfer2<Handler>& reinit() {
+    RxTransfer<Handler>& reinit() {
         transferred = 0;
 
         return *this;

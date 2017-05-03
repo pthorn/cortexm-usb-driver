@@ -7,7 +7,7 @@
 
 
 //BufferRxTransfer<3, MockHandler> ctrl_rx_transfer;
-static BufferTxTransfer<StandardRequests> ctrl_tx_transfer;
+static TxTransfer<StandardRequests> ctrl_tx_transfer;
 
 
 SetupResult StandardRequests::on_ctrl_setup_stage()
