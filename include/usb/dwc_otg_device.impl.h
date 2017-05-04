@@ -33,8 +33,8 @@ static T div_round_up(T a, T b)
 
 // TODO params: core (FS or HS), timing, Vbus sensing, interrupt priority
 // TODO (not incl. EP0): F4 FS: 3, HS: 5; F7 FS: 5, HS: 8
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::DWC_OTG_Device(
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::DWC_OTG_Device(
     EndpointConfig const* endpoint_config,
     DWCEndpointConfig const* dwc_endpoint_config,
     Descriptors const& descriptors,
@@ -59,8 +59,8 @@ DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::DWC_OTG_Device(
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init()
 {
     init_clocks();
     init_gpio();
@@ -73,8 +73,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::set_address(uint16_t address)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::set_address(uint16_t address)
 {
     uint32_t dcfg = USB_DEV->DCFG;
     dcfg &= ~(0x7F << USB_OTG_DCFG_DAD_Pos);
@@ -86,8 +86,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::set_address(uint16_t addre
 
 
 // ref: RM0090 rev. 13 page 1365, "IN data transfers"
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, ITxTransfer& transfer)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::submit(uint8_t ep_n, ITxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
 
@@ -132,8 +132,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, ITxTr
 
 
 // ref: RM0090 rev. 13 page 1356
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, IRxTransfer& transfer)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::submit(uint8_t ep_n, IRxTransfer& transfer)
 {
     // TODO check if transfer is already in progress?
     // interrupt is already enabled (RXFLVL)
@@ -157,8 +157,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::submit(uint8_t ep_n, IRxTr
 
 // TODO support STALL for OUT EPs
 // TODO support unSTALL bulk/interrupt EPs
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::stall(uint8_t ep)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::stall(uint8_t ep)
 {
     // control endpoints: the core clears STALL bit when a SETUP token is received
     // bulk and interrupt endpoints: core never clears this bit
@@ -166,8 +166,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::stall(uint8_t ep)
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_init_ctrl_transfer()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::ep0_init_ctrl_transfer()
 {
     d_info("ep0_init_ctrl_transfer()\n");
 
@@ -184,8 +184,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::ep0_init_ctrl_transfer()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr()
 {
     uint32_t gintsts = USB_CORE->GINTSTS;
 
@@ -290,8 +290,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr()
 // protected
 //
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_endpoints(uint8_t configuration)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_endpoints(uint8_t configuration)
 {
     for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
         if (ep_conf->n > 15 ) {
@@ -311,8 +311,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_endpoints(uint8_t con
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::deinit_endpoints()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::deinit_endpoints()
 {
     // TODO
 }
@@ -322,16 +322,16 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::deinit_endpoints()
 // private
 //
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_clocks()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_clocks()
 {
     __HAL_RCC_GPIOA_CLK_ENABLE();
     __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_gpio()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_gpio()
 {
     // USB_FS F4 and F7 pins:
     //   PA9: USB_FS_VBUS (controlled by USB_OTG_GCCFG_NOVBUSSENS)
@@ -348,16 +348,16 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_gpio()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_nvic()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_nvic()
 {
     NVIC_SetPriority(OTG_FS_IRQn, 2);
     NVIC_EnableIRQ(OTG_FS_IRQn);
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_usb()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_usb()
 {
     d_info("init_usb()\n");
 
@@ -387,9 +387,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_usb()
 
     // note: PA9/PB13 is only free to be used as GPIO when NOVBUSSENS is set
 
-    constexpr bool vbus_sensing = false;  // TODO parameter
-
-    if (vbus_sensing) {
+    if (VBusSensing) {
 #ifdef USB_OTG_GCCFG_VBDEN
         USB_CORE->GCCFG |= USB_OTG_GCCFG_VBDEN;
 #else
@@ -419,8 +417,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_usb()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_interrupts()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_interrupts()
 {
     // TODO reset any pending interrupta
     //USB_CORE->GINTSTS = 0xffffffff;  // TODO OR only necessary bits
@@ -453,8 +451,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_interrupts()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_ep0()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_ep0()
 {
     // allocate RxFIFO (for all endpoints)
     // value in words, min 16, max 256
@@ -498,8 +496,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_ep0()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_in_endpoint(EndpointConfig const& ep_conf)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_in_endpoint(EndpointConfig const& ep_conf)
 {
     // IN EP transmits data from device to host.
     // Has its own TxFIFO.
@@ -538,8 +536,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_in_endpoint(EndpointC
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_out_endpoint(EndpointConfig const& ep_conf)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_out_endpoint(EndpointConfig const& ep_conf)
 {
     // TODO test transfers with EPENA=0!
 
@@ -558,8 +556,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::init_out_endpoint(Endpoint
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_usb_reset()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_usb_reset()
 {
     // this can be triggered by cable disconnect or with no cable attached!
 
@@ -586,8 +584,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_usb_reset()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_speed_complete()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_speed_complete()
 {
     // end of reset
     // http://cgit.jvnv.net/laks/tree/usb/USB_otg.h?id=4100075#n183
@@ -610,8 +608,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_speed_complete()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_read_rxfifo()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_read_rxfifo()
 {
     // http://cgit.jvnv.net/laks/tree/usb/USB_otg.h?id=4100075#n20
     // https://github.com/osrf/wandrr/blob/master/firmware/foot/common/usb.c#L417-L482
@@ -689,8 +687,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_read_rxfifo()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_out_ep_interrupt()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_out_ep_interrupt()
 {
     uint16_t out_ep_interrupt_flags =
         (USB_DEV->DAINT & USB_OTG_DAINT_OEPINT) >> USB_OTG_DAINT_OEPINT_Pos;
@@ -726,8 +724,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_out_ep_interrupt()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_in_ep_interrupt()
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_in_ep_interrupt()
 {
     uint16_t in_ep_interrupt_flags =
         (USB_DEV->DAINT & USB_OTG_DAINT_IEPINT) >> USB_OTG_DAINT_IEPINT_Pos;
@@ -789,8 +787,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::isr_in_ep_interrupt()
 }
 
 
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::read_packet(unsigned char* dest_buf, uint16_t n_bytes)
+template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::read_packet(unsigned char* dest_buf, uint16_t n_bytes)
 {
     uint32_t fifo_tmp;
     unsigned char const *fifo_buf = reinterpret_cast<unsigned char const*>(&fifo_tmp);
@@ -805,8 +803,8 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::read_packet(unsigned char*
 }
 
 
-template<size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
-DWCEndpointConfig const& DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::get_dwc_ep_config(uint8_t ep_n)
+template<size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
+DWCEndpointConfig const& DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::get_dwc_ep_config(uint8_t ep_n)
 {
     for (size_t i = 0; ; ++i) {
         if (dwc_endpoint_config[i].n > 15) {

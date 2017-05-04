@@ -14,7 +14,7 @@ struct DWCEndpointConfig {
 };
 
 
-template<size_t NHandlers, size_t NEndpoints, size_t CoreAddr>
+template<size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing = true>
 class DWC_OTG_Device: public Device<NHandlers, NEndpoints>
 {
 public:
