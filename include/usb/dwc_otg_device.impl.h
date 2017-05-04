@@ -49,7 +49,12 @@ DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr>::DWC_OTG_Device(
     max_ep_n(0),
     fifo_end(0)
 {
-    static_assert(CoreAddr == USB_OTG_FS_PERIPH_BASE || CoreAddr == USB_OTG_HS_PERIPH_BASE, "!");
+    static_assert(CoreAddr == USB_OTG_FS_PERIPH_BASE
+#if defined(USB_OTG_HS_PERIPH_BASE)
+                  || CoreAddr == USB_OTG_HS_PERIPH_BASE
+#endif
+                  , "CoreAddr must be either USB_OTG_FS_PERIPH_BASE or USB_OTG_HS_PERIPH_BASE");
+
     // TODO static_assert() NEndpoints and NEndpoints too
 }
 
