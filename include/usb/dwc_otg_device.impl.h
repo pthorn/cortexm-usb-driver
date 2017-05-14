@@ -325,8 +325,15 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::deinit_endpoi
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
 void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_clocks()
 {
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
+    if (CoreAddr == USB_OTG_FS_PERIPH_BASE) {
+        __HAL_RCC_GPIOA_CLK_ENABLE();
+        __HAL_RCC_USB_OTG_FS_CLK_ENABLE();
+#if defined(USB_OTG_HS_PERIPH_BASE)
+    } else if (CoreAddr == USB_OTG_HS_PERIPH_BASE) {
+        __HAL_RCC_GPIOB_CLK_ENABLE();
+        __HAL_RCC_USB_OTG_HS_CLK_ENABLE();
+#endif
+    }
 }
 
 
@@ -339,20 +346,40 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_gpio()
     //   PA12: USB_FS_DP (AF)
 
     GPIO_InitTypeDef GPIO_InitStruct = {};
-    GPIO_InitStruct.Pin = GPIO_PIN_11 | GPIO_PIN_12;
-    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;  // TODO GPIO_SPEED_FREQ_VERY_HIGH
-    GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    if (CoreAddr == USB_OTG_FS_PERIPH_BASE) {
+        GPIO_InitStruct.Pin = GPIO_PIN_11 | GPIO_PIN_12;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;  // TODO GPIO_SPEED_FREQ_VERY_HIGH
+        GPIO_InitStruct.Alternate = GPIO_AF10_OTG_FS;
+        HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+#if defined(USB_OTG_HS_PERIPH_BASE)
+    } else if (CoreAddr == USB_OTG_HS_PERIPH_BASE) {
+        // TODO
+        GPIO_InitStruct.Pin = GPIO_PIN_14 | GPIO_PIN_15;
+        GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+        GPIO_InitStruct.Pull = GPIO_NOPULL;
+        GPIO_InitStruct.Speed = GPIO_SPEED_HIGH;
+        GPIO_InitStruct.Alternate = GPIO_AF12_OTG_HS_FS;
+        HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+#endif
+    }
 }
 
 
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
 void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_nvic()
 {
-    NVIC_SetPriority(OTG_FS_IRQn, 2);
-    NVIC_EnableIRQ(OTG_FS_IRQn);
+    if (CoreAddr == USB_OTG_FS_PERIPH_BASE) {
+        NVIC_SetPriority(OTG_FS_IRQn, 2);
+        NVIC_EnableIRQ(OTG_FS_IRQn);
+#if defined(USB_OTG_HS_PERIPH_BASE)
+    } else if (CoreAddr == USB_OTG_HS_PERIPH_BASE) {
+        NVIC_SetPriority(OTG_HS_IRQn, 2);
+        NVIC_EnableIRQ(OTG_HS_IRQn);
+#endif
+    }
 }
 
 
@@ -363,14 +390,14 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_usb()
 
     // select PHY
     // (always 1 for FS)
-    USB_CORE->GUSBCFG  |= USB_OTG_GUSBCFG_PHYSEL;
+    USB_CORE->GUSBCFG |= USB_OTG_GUSBCFG_PHYSEL;
 
     // wait for AHB idle
     while (!(USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL)) ;;
 
     // soft reset core
     USB_CORE->GRSTCTL |= USB_OTG_GRSTCTL_CSRST;
-    while (USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_CSRST);
+    while (USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_CSRST) ;;
 
     // wait for AHB idle
     while (!(USB_CORE->GRSTCTL & USB_OTG_GRSTCTL_AHBIDL)) ;;
