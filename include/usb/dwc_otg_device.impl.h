@@ -103,7 +103,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::submit(uint8_
         (size_t)get_dwc_ep_config(ep_n).tx_fifo_size
     );
 
-    d_info("start_IN_transfer(): ep %s, bytes %s, npkt %s, first chunk %s\n",
+    d_info("submit() IN: ep %s, bytes %s, npkt %s, first chunk %s\n",
           ep_n, transfer.get_remaining(), n_packets, chunk_size);
 
     // program packet count and transfer size in bytes
@@ -126,7 +126,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::submit(uint8_
     // TODO race condition?
     if (transfer.get_remaining() > 0) {
         USB_DEV->DIEPEMPMSK |= 1 << ep_n;
-        d_verbose("start_IN_transfer(): en intr, rem %s\n", transfer.get_remaining());
+        d_verbose("submit() IN: en intr, rem %s\n", transfer.get_remaining());
     }
 }
 
@@ -144,6 +144,9 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::submit(uint8_
         transfer.get_remaining(),
         (size_t)get_ep_config(ep_n, InOut::Out).max_pkt_size
     );
+
+    d_info("submit() OUT: ep %s, bytes %s, npkt %s\n",
+          ep_n, transfer.get_remaining(), n_packets);
 
     USB_OUTEP(ep_n)->DOEPTSIZ =
         (n_packets << USB_OTG_DOEPTSIZ_PKTCNT_Pos) |
