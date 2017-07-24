@@ -43,9 +43,6 @@ public:
     void ep0_init_ctrl_transfer() override;
 
 protected:
-    void init_endpoints(uint8_t configuration) override;
-    void deinit_endpoints() override;
-
     using Device<NHandlers, NEndpoints>::on_connect;
     using Device<NHandlers, NEndpoints>::on_disconnect;
     using Device<NHandlers, NEndpoints>::on_suspend;
@@ -54,6 +51,9 @@ protected:
     using Device<NHandlers, NEndpoints>::dispatch_in_transfer_complete;
     using Device<NHandlers, NEndpoints>::dispatch_out_transfer_complete;
 
+    void init_in_endpoint(EndpointConfig const& ep_conf) override;
+    void init_out_endpoint(EndpointConfig const& ep_conf) override;
+
 private:
     void init_clocks();
     void init_gpio();
@@ -61,8 +61,6 @@ private:
     void init_usb();
     void init_interrupts();
     void init_ep0();
-    void init_in_endpoint(EndpointConfig const& ep_conf);
-    void init_out_endpoint(EndpointConfig const& ep_conf);
 
     void isr_usb_reset();
     void isr_speed_complete();

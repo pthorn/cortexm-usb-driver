@@ -48,6 +48,34 @@ void Device<NHandlers, NEndpoints>::add_handler(Handler* handler)
 }
 
 
+template <size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::init_endpoints(uint8_t configuration)
+{
+    for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
+        if (ep_conf->n > 15 ) {
+            break;
+        }
+
+        if (ep_conf->n == 0) {
+            continue;
+        }
+
+        if (ep_conf->in_out == InOut::In) {
+            init_in_endpoint(*ep_conf);
+        } else {
+            init_out_endpoint(*ep_conf);
+        }
+    }
+}
+
+
+template <size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::deinit_endpoints()
+{
+    // TODO
+}
+
+
 template<size_t NHandlers, size_t NEndpoints>
 void Device<NHandlers, NEndpoints>::on_connect()
 {

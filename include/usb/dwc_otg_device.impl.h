@@ -294,30 +294,62 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr()
 //
 
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_endpoints(uint8_t configuration)
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_in_endpoint(EndpointConfig const& ep_conf)
 {
-    for (auto ep_conf = &endpoint_config[0]; ; ++ep_conf) {
-        if (ep_conf->n > 15 ) {
-            break;
-        }
+    // IN EP transmits data from device to host.
+    // Has its own TxFIFO.
 
-        if (ep_conf->n == 0) {
-            continue;
-        }
+    // TODO check ep number
+    // TODO check size
+    // TODO check for FIFO memory overflow
 
-        if (ep_conf->in_out == InOut::In) {
-            init_in_endpoint(*ep_conf);
-        } else {
-            init_out_endpoint(*ep_conf);
-        }
-    }
+    // allocate TxFIFO
+    auto const tx_fifo_size_words = get_dwc_ep_config(ep_conf.n).tx_fifo_size >> 2;
+    USB_CORE->DIEPTXF[ep_conf.n - 1] =
+        (tx_fifo_size_words << USB_OTG_DIEPTXF_INEPTXFD_Pos) |  // TxFIFO size, in 32-bit words
+        fifo_end;
+    fifo_end += tx_fifo_size_words;
+
+    USB_INEP(ep_conf.n)->DIEPCTL =
+        USB_OTG_DIEPCTL_USBAEP |               // activate EP
+        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DIEPCTL_EPTYP_Pos) |
+        // use TxFIFO with the same number as the EP
+        (ep_conf.n << USB_OTG_DIEPCTL_TXFNUM_Pos) |
+        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
+        USB_OTG_DIEPCTL_SD0PID_SEVNFRM |
+        USB_OTG_DIEPCTL_SNAK;
+
+    // enable EP-specific interrupt
+    USB_DEV->DAINTMSK |=
+        (1 << (ep_conf.n + USB_OTG_DAINTMSK_IEPM_Pos));
+
+    d_info("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
+        ep_conf.n,
+        static_cast<uint32_t>(ep_conf.type),
+        static_cast<uint32_t>(ep_conf.in_out),
+        ep_conf.max_pkt_size,
+        get_dwc_ep_config(ep_conf.n).tx_fifo_size,
+        fifo_end * 4);
 }
 
 
 template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::deinit_endpoints()
+void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_out_endpoint(EndpointConfig const& ep_conf)
 {
-    // TODO
+    // TODO test transfers with EPENA=0!
+
+    // TODO check EPType values against EPTYP
+    USB_OUTEP(ep_conf.n)->DOEPCTL =
+        USB_OTG_DOEPCTL_USBAEP |              // activate EP
+        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DOEPCTL_EPTYP_Pos) |
+        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
+        USB_OTG_DOEPCTL_CNAK;
+
+    // enable EP-specific interrupt
+    USB_DEV->DAINTMSK |=
+        (1 << (ep_conf.n + USB_OTG_DAINTMSK_OEPM_Pos));
+
+    d_info("init_out_endpoint(): ep %s\n", ep_conf.n);
 }
 
 
@@ -523,66 +555,6 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_ep0()
     USB_DEV->DAINTMSK |=
         (1 << (0 + USB_OTG_DAINTMSK_IEPM_Pos)) |
         (1 << (0 + USB_OTG_DAINTMSK_OEPM_Pos));
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_in_endpoint(EndpointConfig const& ep_conf)
-{
-    // IN EP transmits data from device to host.
-    // Has its own TxFIFO.
-
-    // TODO check ep number
-    // TODO check size
-    // TODO check for FIFO memory overflow
-
-    // allocate TxFIFO
-    auto const tx_fifo_size_words = get_dwc_ep_config(ep_conf.n).tx_fifo_size >> 2;
-    USB_CORE->DIEPTXF[ep_conf.n - 1] =
-        (tx_fifo_size_words << USB_OTG_DIEPTXF_INEPTXFD_Pos) |  // TxFIFO size, in 32-bit words
-        fifo_end;
-    fifo_end += tx_fifo_size_words;
-
-    USB_INEP(ep_conf.n)->DIEPCTL =
-        USB_OTG_DIEPCTL_USBAEP |               // activate EP
-        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DIEPCTL_EPTYP_Pos) |
-        // use TxFIFO with the same number as the EP
-        (ep_conf.n << USB_OTG_DIEPCTL_TXFNUM_Pos) |
-        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
-        USB_OTG_DIEPCTL_SD0PID_SEVNFRM |
-        USB_OTG_DIEPCTL_SNAK;
-
-    // enable EP-specific interrupt
-    USB_DEV->DAINTMSK |=
-        (1 << (ep_conf.n + USB_OTG_DAINTMSK_IEPM_Pos));
-
-    d_info("init_in_endpoint(): ep %s, type %s, inout %s, maxpkt %s, txfifo size %s, fifo end %s\n",
-        ep_conf.n,
-        static_cast<uint32_t>(ep_conf.type),
-        static_cast<uint32_t>(ep_conf.in_out),
-        ep_conf.max_pkt_size,
-        get_dwc_ep_config(ep_conf.n).tx_fifo_size,
-        fifo_end * 4);
-}
-
-
-template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing>
-void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::init_out_endpoint(EndpointConfig const& ep_conf)
-{
-    // TODO test transfers with EPENA=0!
-
-    // TODO check EPType values against EPTYP
-    USB_OUTEP(ep_conf.n)->DOEPCTL =
-        USB_OTG_DOEPCTL_USBAEP |              // activate EP
-        (static_cast<uint32_t>(ep_conf.type) << USB_OTG_DOEPCTL_EPTYP_Pos) |
-        (ep_conf.max_pkt_size << USB_OTG_DIEPCTL_MPSIZ_Pos) |
-        USB_OTG_DOEPCTL_CNAK;
-
-    // enable EP-specific interrupt
-    USB_DEV->DAINTMSK |=
-        (1 << (ep_conf.n + USB_OTG_DAINTMSK_OEPM_Pos));
-
-    d_info("init_out_endpoint(): ep %s\n", ep_conf.n);
 }
 
 
