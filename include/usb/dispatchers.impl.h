@@ -55,7 +55,7 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 
     // find a handler that recognizes the request
 
-    SetupResult result;
+    SetupResult result = SetupResult::UNHANDLED;
     for (auto handler: device.handlers) {
         if (handler == nullptr) {
             continue;
@@ -79,21 +79,22 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
     bool const has_data_stage = setup_packet.wLength > 0;
     InOut const in_out = setup_packet.bmRequestType & ENDPOINT_IN ? InOut::In : InOut::Out;
 
-    if (has_data_stage && in_out == InOut::In && device.in_transfers[ep_n] == nullptr) {
-        d_assert("handler did not submit a data stage transfer 1\n");
-    }
-    if (has_data_stage && in_out == InOut::Out && device.out_transfers[ep_n] == nullptr) {
-        d_assert("handler did not submit a data stage transfer 2\n");
-    }
-
     if (has_data_stage) {
+        if (in_out == InOut::In && device.in_transfers[ep_n] == nullptr) {
+            d_assert("handler did not submit an IN transfer for data stage\n");
+        }
+        if (in_out == InOut::Out && device.out_transfers[ep_n] == nullptr) {
+            d_assert("handler did not submit an OUT transfer for data stage\n");
+        }
+
         // data stage transfer has been initialized by a handler
         d_info("CE: setup stage compl, data stage\n");
         state = CtrlState::DATA_STAGE;
         return;
     }
 
-    // otherwise initialize status stage
+    // no data stage: initialize status stage (zero length transfer)
+
     if (in_out == InOut::In) {
         d_info("CE: IN setup stage compl, no data stage, receiving (OUT) ZLP\n");
         device.submit(0, zl_rx_transfer);
@@ -106,7 +107,6 @@ void CtrlEPDispatcher<Device>::on_setup_stage(uint8_t ep_n)
 }
 
 
-// TODO do we actually need separate callbacks for IN and OUT?
 template <typename Device>
 void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
 {
@@ -119,7 +119,7 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
     transfer->on_complete();  // may install another transfer
 
     if (state == CtrlState::DATA_STAGE) {
-        // init status stage
+        // data stage complete, init status stage
         d_info("CE: IN data stage compl, receiving (OUT) ZLP\n");
         device.submit(0, zl_rx_transfer);
 
@@ -140,7 +140,6 @@ void CtrlEPDispatcher<Device>::on_in_transfer_complete(uint8_t ep_n)
 }
 
 
-// TODO a lot of duplicated code
 template <typename Device>
 void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
 {
@@ -153,7 +152,7 @@ void CtrlEPDispatcher<Device>::on_out_transfer_complete(uint8_t ep_n)
     transfer->on_complete();  // may install another transfer
 
     if (state == CtrlState::DATA_STAGE) {
-        // init status stage
+        // data stage complete, init status stage
         d_info("CE: OUT data stage compl, sending (IN) ZLP\n");
         device.submit(0, zl_tx_transfer);
 
