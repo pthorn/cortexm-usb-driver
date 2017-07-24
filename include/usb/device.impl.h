@@ -49,6 +49,43 @@ void Device<NHandlers, NEndpoints>::add_handler(Handler* handler)
 
 
 template<size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::on_connect()
+{
+    CALL_HANDLERS(on_connect);
+}
+
+
+template<size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::on_disconnect()
+{
+    CALL_HANDLERS(on_disconnect);
+}
+
+
+template<size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::on_suspend()
+{
+    CALL_HANDLERS(on_suspend);
+}
+
+
+template<size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::on_resume()
+{
+    CALL_HANDLERS(on_resume);
+}
+
+
+template<size_t NHandlers, size_t NEndpoints>
+void Device<NHandlers, NEndpoints>::on_reset()
+{
+    state = State::SPEED;
+    current_configuration = 0;
+    CALL_HANDLERS(on_reset);
+}
+
+
+template<size_t NHandlers, size_t NEndpoints>
 uint8_t Device<NHandlers, NEndpoints>::get_configuration()
 {
     return current_configuration;

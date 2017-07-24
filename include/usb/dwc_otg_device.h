@@ -46,6 +46,11 @@ protected:
     void init_endpoints(uint8_t configuration) override;
     void deinit_endpoints() override;
 
+    using Device<NHandlers, NEndpoints>::on_connect;
+    using Device<NHandlers, NEndpoints>::on_disconnect;
+    using Device<NHandlers, NEndpoints>::on_suspend;
+    using Device<NHandlers, NEndpoints>::on_resume;
+    using Device<NHandlers, NEndpoints>::on_reset;
     using Device<NHandlers, NEndpoints>::dispatch_in_transfer_complete;
     using Device<NHandlers, NEndpoints>::dispatch_out_transfer_complete;
 

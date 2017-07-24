@@ -21,7 +21,6 @@ class Device: public IDevice
 
 public:
     Device(EndpointConfig const* endpoint_config, Descriptors const& descriptors);
-
     void add_handler(Handler* handler);
 
     uint8_t get_configuration() override;
@@ -31,6 +30,11 @@ public:
     SetupPacket const& get_setup_pkt() override;
 
 protected:
+    void on_connect();
+    void on_disconnect();
+    void on_suspend();
+    void on_resume();
+    void on_reset();
     void dispatch_in_transfer_complete(uint8_t ep_n);
     void dispatch_out_transfer_complete(uint8_t ep_n);
 

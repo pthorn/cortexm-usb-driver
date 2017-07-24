@@ -245,7 +245,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr()
         if (USB_DEV->DSTS & USB_OTG_DSTS_SUSPSTS) {  // if actual suspend
             d_info("USBSUSP\n");
             USB_CORE->GINTMSK &= ~USB_OTG_GINTMSK_USBSUSPM;  // disable suspend interrupt
-            CALL_HANDLERS(on_suspend);
+            on_suspend();
         }
 
         return;
@@ -256,14 +256,14 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr()
         d_info("WKUINT\n");
 
         USB_CORE->GINTMSK |= USB_OTG_GINTMSK_USBSUSPM;  // reenable suspend interrupt
-        CALL_HANDLERS(on_resume);
+        on_resume();
         return;
     }
 
     if (gintsts & USB_OTG_GINTSTS_SRQINT) {
         d_info("SRQINT\n");  // cable connect
         USB_CORE->GINTSTS = USB_OTG_GINTSTS_SRQINT; // rc_w1
-        CALL_HANDLERS(on_connect);
+        on_connect();
         return;
     }
 
@@ -273,7 +273,7 @@ void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr()
 
         if (gotgint & USB_OTG_GOTGINT_SEDET) {
             d_info("SEDET\n");  // session end (cable disconnect)
-            CALL_HANDLERS(on_disconnect);
+            on_disconnect();
         }
 
         return;
@@ -618,23 +618,13 @@ template <size_t NHandlers, size_t NEndpoints, size_t CoreAddr, bool VBusSensing
 void DWC_OTG_Device<NHandlers, NEndpoints, CoreAddr, VBusSensing>::isr_speed_complete()
 {
     // end of reset
-    // http://cgit.jvnv.net/laks/tree/usb/USB_otg.h?id=4100075#n183
 
     // 0 = high speed, 3 = full speed
     uint8_t speed = (USB_DEV->DSTS & USB_OTG_DSTS_ENUMSPD) >> USB_OTG_DSTS_ENUMSPD_Pos;
 
-    state = State::SPEED;
-    current_configuration = 0;
     fifo_end = 0;
-
     init_ep0();
-
-    CALL_HANDLERS(on_reset);
-
-    //d_info("DCTL %#10x DSTS %#10x speed %s\n", USB_DEV->DCTL, USB_DEV->DSTS, speed);
-    //d_info("DOEPCTL0 %#10x\n", USB_OUTEP(0)->DOEPCTL);
-
-    //d_info("GOTGCTL %#10x GOTGINT %#10x\n", USB_CORE->GOTGCTL, USB_CORE->GOTGINT);
+    on_reset();
 }
 
 
