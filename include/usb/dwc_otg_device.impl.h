@@ -10,7 +10,6 @@
 
 #define CORE_BASE CoreAddr
 #define USB_CORE ((USB_OTG_GlobalTypeDef *)CORE_BASE)
-//static USB_OTG_DeviceTypeDef * const USB_DEV = (USB_OTG_DeviceTypeDef *)((uint32_t)CORE_BASE + USB_OTG_DEVICE_BASE);
 #define GHWCFG2 ((volatile uint32_t *)(CORE_BASE + 0x48))
 #define GHWCFG3 ((volatile uint32_t *)(CORE_BASE + 0x4C))
 #define USB_DEV ((USB_OTG_DeviceTypeDef *)(CORE_BASE + USB_OTG_DEVICE_BASE))
@@ -19,15 +18,16 @@
 #define USB_FIFO(i) ((volatile uint32_t *)(CORE_BASE + USB_OTG_FIFO_BASE + (i) * USB_OTG_FIFO_SIZE))
 
 
-// TODO anon ns
-template<typename T>
-static T div_round_up(T a, T b)
-{
-    if (a == 0) {
-        return 1;
-    }
+namespace {
+    template<typename T>
+    static T div_round_up(T a, T b)
+    {
+        if (a == 0) {
+            return 1;
+        }
 
-    return (a + (b - 1)) / b;
+        return (a + (b - 1)) / b;
+    }
 }
 
 
