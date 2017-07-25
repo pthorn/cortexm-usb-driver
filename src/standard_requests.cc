@@ -30,7 +30,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
     ) {
         d_info("set address %s\n", get_setup_pkt().wValue);
         device->set_address(get_setup_pkt().wValue);
-        return SetupResult::NO_DATA_STAGE;
+        return SetupResult::OK;
     }
 
     // get configuration
@@ -45,7 +45,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
         ctrl_tx_transfer.init(data, sizeof(data), this);
         submit(0, ctrl_tx_transfer);
 
-        return SetupResult::DATA_STAGE;
+        return SetupResult::OK;
     }
 
     // set configuration
@@ -55,7 +55,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
         d_info("set configuration %s\n", get_setup_pkt().wValue & 0xFF);
 
         if (device->set_configuration(get_setup_pkt().wValue & 0xFF)) {
-            return SetupResult::NO_DATA_STAGE;
+            return SetupResult::OK;
         }
 
         return SetupResult::STALL;
@@ -73,7 +73,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
         ctrl_tx_transfer.init(data, sizeof(data), this);
         submit(0, ctrl_tx_transfer);
 
-        return SetupResult::DATA_STAGE;
+        return SetupResult::OK;
     }
 
     //
@@ -85,7 +85,7 @@ SetupResult StandardRequests::on_ctrl_setup_stage()
        get_setup_pkt().bRequest == SET_INTERFACE
     ) {
         d_info("set interface\n");
-        return SetupResult::NO_DATA_STAGE;
+        return SetupResult::OK;
     }
 
     d_info("unknown\n");
@@ -148,5 +148,5 @@ SetupResult StandardRequests::send_descriptor()
     ctrl_tx_transfer.init(descriptor_buf, length, this);
     submit(0, ctrl_tx_transfer);
 
-    return SetupResult::DATA_STAGE;
+    return SetupResult::OK;
 }

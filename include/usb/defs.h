@@ -64,8 +64,7 @@ struct SetupPacket {  // sizeof() == 8
 
 enum class SetupResult {
     UNHANDLED,
-    DATA_STAGE,     // data stage has been initialized
-    NO_DATA_STAGE,  // status stage has been initialized
+    OK,
     STALL
 };
 
