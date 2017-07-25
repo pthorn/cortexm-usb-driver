@@ -77,35 +77,35 @@ void Device<NHandlers, NEndpoints>::deinit_endpoints()
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::on_connect()
+inline void Device<NHandlers, NEndpoints>::on_connect()
 {
     CALL_HANDLERS(on_connect);
 }
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::on_disconnect()
+inline void Device<NHandlers, NEndpoints>::on_disconnect()
 {
     CALL_HANDLERS(on_disconnect);
 }
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::on_suspend()
+inline void Device<NHandlers, NEndpoints>::on_suspend()
 {
     CALL_HANDLERS(on_suspend);
 }
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::on_resume()
+inline void Device<NHandlers, NEndpoints>::on_resume()
 {
     CALL_HANDLERS(on_resume);
 }
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::on_reset()
+inline void Device<NHandlers, NEndpoints>::on_reset()
 {
     state = State::SPEED;
     current_configuration = 0;
@@ -114,7 +114,7 @@ void Device<NHandlers, NEndpoints>::on_reset()
 
 
 template<size_t NHandlers, size_t NEndpoints>
-uint8_t Device<NHandlers, NEndpoints>::get_configuration()
+inline uint8_t Device<NHandlers, NEndpoints>::get_configuration()
 {
     return current_configuration;
 }
@@ -166,13 +166,13 @@ EndpointConfig const& Device<NHandlers, NEndpoints>::get_ep_config(uint8_t ep_n,
 
 
 template<size_t NHandlers, size_t NEndpoints>
-SetupPacket const& Device<NHandlers, NEndpoints>::get_setup_pkt() {
+inline SetupPacket const& Device<NHandlers, NEndpoints>::get_setup_pkt() {
     return ctrl_ep_dispatcher.setup_packet;
 }
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::dispatch_in_transfer_complete(uint8_t ep_n) {
+inline void Device<NHandlers, NEndpoints>::dispatch_in_transfer_complete(uint8_t ep_n) {
     if (ep_n == 0) {
         ctrl_ep_dispatcher.on_in_transfer_complete(ep_n);
     } else {
@@ -182,7 +182,7 @@ void Device<NHandlers, NEndpoints>::dispatch_in_transfer_complete(uint8_t ep_n) 
 
 
 template<size_t NHandlers, size_t NEndpoints>
-void Device<NHandlers, NEndpoints>::dispatch_out_transfer_complete(uint8_t ep_n) {
+inline void Device<NHandlers, NEndpoints>::dispatch_out_transfer_complete(uint8_t ep_n) {
     if (ep_n == 0) {
         ctrl_ep_dispatcher.on_out_transfer_complete(ep_n);
     } else {
