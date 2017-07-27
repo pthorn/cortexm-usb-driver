@@ -33,10 +33,6 @@ public:
     virtual void submit(uint8_t ep_n, IRxTransfer& transfer) = 0;
     virtual void submit(uint8_t ep_n, ITxTransfer& transfer) = 0;
     virtual void stall(uint8_t ep) = 0;
-
-protected:
-    virtual void init_endpoints(uint8_t configuration) = 0;
-    virtual void deinit_endpoints() = 0;
 };
 
 #endif // IDEVICE_H

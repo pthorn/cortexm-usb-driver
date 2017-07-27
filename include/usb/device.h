@@ -33,8 +33,8 @@ protected:
     virtual void init_in_endpoint(EndpointConfig const& ep_conf) = 0;
     virtual void init_out_endpoint(EndpointConfig const& ep_conf) = 0;
 
-    void init_endpoints(uint8_t configuration) override;
-    void deinit_endpoints() override;
+    void init_endpoints(uint8_t configuration);
+    void deinit_endpoints();
     void on_connect();
     void on_disconnect();
     void on_suspend();
