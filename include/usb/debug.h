@@ -6,12 +6,13 @@
 #define DEBUG_WARN 2
 #define DEBUG_ERROR 3
 #define DEBUG_CRITICAL 4
+#define DEBUG_NONE 255
 
 #ifndef DEBUG_LEVEL
 #define DEBUG_LEVEL DEBUG_WARN
 #endif
 
-#if DEBUG_LEVEL <= DEBUG_CRITICAL
+#if DEBUG_LEVEL < DEBUG_NONE
 #   include <print.h>
 #endif
 
